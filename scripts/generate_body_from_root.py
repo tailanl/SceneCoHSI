@@ -54,18 +54,10 @@ def load_kimodo_sceneco(model_ckpt, device):
     base_model.eval()
     base_model = base_model.to(device)
 
-    scene_encoder_config = {
-        "d_model": 256,
-        "voxel_size": 0.1,
-        "grid_size": 64,
-    }
-
     model = KimodoSceneCo(
         denoiser=base_model.denoiser.model if hasattr(base_model.denoiser, "model") else base_model.denoiser,
         text_encoder=base_model.text_encoder,
         num_base_steps=1000,
-        scene_encoder_type="voxel_vit",
-        scene_encoder_config=scene_encoder_config,
         device=device,
         cfg_type="separated",
     )
