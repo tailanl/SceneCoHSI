@@ -129,17 +129,26 @@ def main():
 
     for npz_file in tqdm(npz_files, desc="Generating body"):
         data = np.load(str(npz_file), allow_pickle=True)
-        gen_root_3d = data["gen_root"]  # (T, 3) meter-space
         text = str(data.get("text", "walk"))
-        T = gen_root_3d.shape[0]
+        scene_name = str(data.get("scene_name", ""))
 
-        # Compute heading from path
-        gen_root_xz = gen_root_3d[:, [0, 2]]
-        heading = heading_from_path(gen_root_xz)
-
-        # Convert to normalized 5D root
-        external_root = root_5d_from_meter(gen_root_3d, heading, model.motion_rep)
-        external_root = external_root.to(device)  # (1, T, 5)
+        # ---- Detect output format ----
+        if "guided_root_5d_norm" in data:
+            # Classifier-guided format: already normalized 5D root
+            guided_root_5d_norm = data["guided_root_5d_norm"]  # (T, 5)
+            T = guided_root_5d_norm.shape[0]
+            external_root = torch.from_numpy(guided_root_5d_norm).float().unsqueeze(0).to(device)
+        elif "gen_root" in data:
+            # Energy-guided format: 3D meter-space root
+            gen_root_3d = data["gen_root"]  # (T, 3)
+            T = gen_root_3d.shape[0]
+            gen_root_xz = gen_root_3d[:, [0, 2]]
+            heading = heading_from_path(gen_root_xz)
+            external_root = root_5d_from_meter(gen_root_3d, heading, model.motion_rep)
+            external_root = external_root.to(device)
+        else:
+            log.warning(f"Skipping {npz_file.name}: no recognized root key found")
+            continue
 
         # Text encoding
         text_clean = sanitize_texts([text])[0]
