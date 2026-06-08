@@ -1,0 +1,87 @@
+# Evaluation configuration for SceneCo experiments
+
+pretrained_model: "Kimodo-SOMA-RP-v1.1"
+checkpoint_dir: "models/Kimodo-SOMA-RP-v1.1"
+baseline_output_dir: "kimodo_scene_project/outputs/baseline_kimoto"
+
+# Checkpoints to evaluate
+checkpoints:
+  - name: "baseline_kimodo"
+    path: null
+    is_baseline: true
+  - name: "root_only_sceneco"
+    path: "kimodo_scene_project/outputs/root_only_sceneco/checkpoints/best_checkpoint.pt"
+    is_baseline: false
+  - name: "root_body_sceneco"
+    path: "kimodo_scene_project/outputs/root_body_sceneco/checkpoints/best_checkpoint.pt"
+    is_baseline: false
+
+eval:
+  num_samples: 10
+  num_denoising_steps: 50
+  num_frames: 196
+  cfg_weights:
+    text: [1.5, 2.0, 2.5]
+    constraint: [1.0, 2.0]
+    scene: [0.0, 0.5, 1.0, 1.5, 2.0]
+  seed: 1234
+
+metrics:
+  # B类：原Kimodo能力回归
+  text_alignment:
+    enabled: true
+    prompts:
+      - "walk forward"
+      - "sit down"
+      - "turn around"
+      - "wave hand"
+      - "run in a circle"
+  fid:
+    enabled: true
+  diversity:
+    enabled: true
+  multimodality:
+    enabled: true
+    samples_per_prompt: 5
+
+  # C类：场景适配
+  collision:
+    enabled: true
+    joint_radius: 0.05
+  penetration:
+    enabled: true
+  root_path:
+    enabled: true
+  contact_success:
+    enabled: true
+
+  # D类：动作质量
+  foot_skating:
+    enabled: true
+    height_threshold: 0.05
+  foot_penetration:
+    enabled: true
+  floating_ratio:
+    enabled: true
+  velocity_smoothness:
+    enabled: true
+  bone_length:
+    enabled: true
+
+  # E类：消融实验
+  random_scene:
+    enabled: true
+    num_tests: 10
+  empty_scene:
+    enabled: true
+  shuffled_scene:
+    enabled: true
+  gate_zero:
+    enabled: true
+
+reports:
+  output_dir: "kimodo_scene_project/outputs/reports"
+  formats:
+    - "json"
+    - "csv"
+    - "latex"

@@ -1,0 +1,80 @@
+# Plan G: SceneCo root+body + TrajCo root-only (cross-attention)
+# SceneCo injected into both root_model and body_model, TrajCoCrossLayer injected into root_model only
+#
+# Based on SMPLX pretrained Kimodo
+# Dataset: lingo_smplx_cache (full motion) + lingo_root_trajectory_smplx (root traj)
+
+pretrained_model: "Kimodo-SMPLX-RP-v1"
+checkpoint_dir: "models"
+output_dir: "kimodo_scene_project/outputs/trajco_cross_root_sceneco_all"
+
+data:
+  data_root: "LINGO/dataset"
+  cache_dir: "lingo_smplx_cache"
+  traj_data_dir: "lingo_root_trajectory_smplx"
+  voxel_size: [64, 64, 64]
+  max_frames: 196
+  min_frames: 40
+  fps: 30
+  train_ratio: 0.9
+  scene_dropout: 0.0
+  text_dropout: 0.1
+  root_trajectory_data: false
+
+voxel_vit:
+  input_size: [64, 64, 64]
+  patch_size: [8, 8, 8]
+  in_channels: 1
+  d_model: 256
+  num_heads: 4
+  num_layers: 4
+  ff_dim: 512
+  dropout: 0.1
+  embed_dim: 512
+  out_dim: 1024
+
+sceneco:
+  use_in_root_model: true
+  use_in_body_model: true
+  d_model: 1024
+  scene_feat_dim: 256
+  nhead: 8
+  dropout: 0.1
+  use_dual_vit: false
+  root_voxel_mode: full
+
+trajco:
+  use_trajco: false
+  use_trajco_root: true
+  use_trajco_body: false
+  traj_dim: 5
+  trajco_dropout: 0.1
+  traj_loss_weight: 1.0
+  traj_dropout: 0.1
+  trajco_type: cross_attn
+
+training:
+  precision: bf16
+  freeze_pretrained: true
+  num_base_steps: 1000
+  num_epochs: 400
+  batch_size: 4
+  warmup_steps: 5000
+  lr: 1.0e-4
+  weight_decay: 0.01
+  max_grad_norm: 1.0
+  prior_weight: 0.5
+  scene_dropout: 0.0
+  text_dropout: 0.1
+  accum_steps: 1
+  device: "cuda"
+  seed: 42
+  log_interval: 50
+  val_interval: 500
+  val_max_batches: 10
+  num_workers: 4
+
+experiment:
+  name: "trajco_cross_root_sceneco_all"
+  gpu_ids: [5]
+  description: "SMPLX SceneCo root+body + TrajCoCross root-only — scene→root+body, traj→root"

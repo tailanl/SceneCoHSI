@@ -1,0 +1,50 @@
+experiment:
+  name: "guidance_root_scene"
+  description: "Analytical root energy guidance for path control and scene collision reduction"
+
+model:
+  checkpoint: "models/Kimodo-SMPLX-RP-v1"
+  use_trajco: false
+  use_sceneco: false
+
+generation:
+  num_frames: 196
+  num_denoising_steps: 50
+  cfg_type: "separated"
+  cfg_weight: [2.0, 2.0]
+
+path_guidance:
+  enabled: true
+  scale: 0.03
+  max_grad_norm: 1.0
+
+  w_path: 10.0
+  w_goal: 20.0
+  w_speed: 1.0
+  w_smooth: 2.0
+  w_jerk: 0.5
+  w_heading: 2.0
+  w_heading_norm: 0.5
+  w_height: 1.0
+
+  start_step: 0
+  end_step: 40
+
+scene_guidance:
+  enabled: false
+  w_scene: 0.0
+  scene_margin: 0.10
+  voxel_size: 0.1
+  grid_origin: [0.0, 0.0, 0.0]
+  axis_order: "ZYX_to_XYZ"
+
+stage2:
+  use_external_root: true
+  use_initial_pose: false
+  fix_root_each_step: true
+
+eval:
+  path_metrics: true
+  sceneadapt_metrics: true
+  use_mesh_vertices: false
+  mesh_level_penetration: false

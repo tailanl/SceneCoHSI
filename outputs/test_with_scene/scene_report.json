@@ -1,0 +1,10 @@
+[
+  {
+    "prompt": "walk forward in a straight line",
+    "scene": "004",
+    "joints_rmse": 2.0187580585479736,
+    "root_rmse": 2.00425124168396,
+    "alpha_raw": 0.008261552080512047,
+    "video": "/home/lzsh2025/kimodo-viser/kimodo_scene_project/outputs/test_with_scene/cmp_walk_forward_in_a_st_004.mp4"
+  }
+]

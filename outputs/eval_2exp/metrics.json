@@ -1,0 +1,14 @@
+{
+  "root_only": {
+    "mean_pose_diff": 4.910928726196289,
+    "first_frame_L2": 2.216061592102051,
+    "FID_approx": 136367.24999388066,
+    "num_samples": 25
+  },
+  "body_only": {
+    "mean_pose_diff": 6.978430271148682,
+    "first_frame_L2": 2.641671657562256,
+    "FID_approx": 194535.60241373818,
+    "num_samples": 25
+  }
+}

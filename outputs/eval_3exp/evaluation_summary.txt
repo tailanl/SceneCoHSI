@@ -1,0 +1,12 @@
+3-Experiment Evaluation Summary
+============================================================
+
+Base (shared encoder) (single_vit)
+  checkpoint_dir: kimodo_scene_project/outputs/single_vit_gpu1/checkpoints
+
+Dual ViT (full) (dual_vit)
+  checkpoint_dir: kimodo_scene_project/outputs/dual_vit_gpu2/checkpoints
+
+Dual ViT (floor) (dual_vit_floor)
+  checkpoint_dir: kimodo_scene_project/outputs/dual_vit_floor_gpu3/checkpoints
+

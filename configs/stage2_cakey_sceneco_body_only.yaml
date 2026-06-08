@@ -1,0 +1,70 @@
+# Stage 2: SceneCo Body-Only (with frozen CaKey)
+# Freeze Kimodo backbone + CaKey layers, train VoxelViT + SceneCo in body_model only.
+# Loads Stage 1 CaKey checkpoint for body.
+
+pretrained_model: "Kimodo-SOMA-RP-v1.1"
+checkpoint_dir: "models/Kimodo-SOMA-RP-v1.1"
+output_dir: "kimodo_scene_project/outputs/cakey_sceneco_body_only"
+
+stage1_checkpoint: "kimodo_scene_project/outputs/cakey_body_only/checkpoints/best_checkpoint.pt"
+
+data:
+  data_root: "LINGO/dataset"
+  cache_dir: "kimodo/kimodo_sceneco/cached_data"
+  voxel_size: [64, 64, 64]
+  max_frames: 196
+  min_frames: 40
+  fps: 30
+  train_ratio: 0.9
+
+voxel_vit:
+  input_size: [64, 64, 64]
+  patch_size: [8, 8, 8]
+  in_channels: 1
+  d_model: 256
+  num_heads: 4
+  num_layers: 4
+  ff_dim: 512
+  dropout: 0.1
+  embed_dim: 512
+  out_dim: 1024
+
+sceneco:
+  use_in_root_model: false
+  use_in_body_model: true
+  d_model: 1024
+  scene_feat_dim: 256
+  nhead: 8
+  dropout: 0.1
+  use_dual_vit: true
+  root_voxel_mode: full
+
+cakey:
+  use_cakey_root: false
+  use_cakey_body: true
+  hidden_dim: 2048
+
+training:
+  precision: bf16
+  freeze_pretrained: true
+  num_base_steps: 1000
+  batch_size: 16
+  total_steps: 200000
+  warmup_steps: 5000
+  lr: 1.0e-4
+  weight_decay: 0.01
+  max_grad_norm: 1.0
+  prior_weight: 0.5
+  scene_dropout: 0.1
+  accum_steps: 1
+  device: "cuda"
+  seed: 42
+  log_interval: 50
+  val_interval: 500
+  val_max_batches: 10
+  num_workers: 4
+
+experiment:
+  name: "cakey_sceneco_body_only"
+  gpu_ids: [3]
+  description: "Stage 2: frozen CaKey body + SceneCo body, independent ViT"

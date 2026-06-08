@@ -1,0 +1,98 @@
+[
+  {
+    "prompt": "walk forward in a straight line",
+    "posed_joints_max_abs_diff": 1.9021010398864746,
+    "posed_joints_mean_abs_diff": 0.5054770112037659,
+    "posed_joints_rmse": 0.7227156162261963,
+    "root_positions_max_abs_diff": 1.7809538841247559,
+    "root_positions_mean_abs_diff": 0.4972938597202301,
+    "root_positions_rmse": 0.7145168781280518,
+    "num_frames": 120,
+    "video_original": "/home/lzsh2025/kimodo-viser/kimodo_scene_project/outputs/test_no_scene/orig_walk_forward_in_a_straight_line.mp4",
+    "video_sceneco": "/home/lzsh2025/kimodo-viser/kimodo_scene_project/outputs/test_no_scene/sceneco_walk_forward_in_a_straight_line.mp4"
+  },
+  {
+    "prompt": "turn around and look back",
+    "posed_joints_max_abs_diff": 0.3807238042354584,
+    "posed_joints_mean_abs_diff": 0.06755336374044418,
+    "posed_joints_rmse": 0.10133776813745499,
+    "root_positions_max_abs_diff": 0.20382031798362732,
+    "root_positions_mean_abs_diff": 0.04973815381526947,
+    "root_positions_rmse": 0.07673229277133942,
+    "num_frames": 100,
+    "video_original": "/home/lzsh2025/kimodo-viser/kimodo_scene_project/outputs/test_no_scene/orig_turn_around_and_look_back.mp4",
+    "video_sceneco": "/home/lzsh2025/kimodo-viser/kimodo_scene_project/outputs/test_no_scene/sceneco_turn_around_and_look_back.mp4"
+  },
+  {
+    "prompt": "sit down on a chair",
+    "posed_joints_max_abs_diff": 0.30877313017845154,
+    "posed_joints_mean_abs_diff": 0.04728304222226143,
+    "posed_joints_rmse": 0.07266103476285934,
+    "root_positions_max_abs_diff": 0.13057270646095276,
+    "root_positions_mean_abs_diff": 0.03311973065137863,
+    "root_positions_rmse": 0.05429290607571602,
+    "num_frames": 100,
+    "video_original": "/home/lzsh2025/kimodo-viser/kimodo_scene_project/outputs/test_no_scene/orig_sit_down_on_a_chair.mp4",
+    "video_sceneco": "/home/lzsh2025/kimodo-viser/kimodo_scene_project/outputs/test_no_scene/sceneco_sit_down_on_a_chair.mp4"
+  },
+  {
+    "prompt": "run quickly then stop",
+    "posed_joints_max_abs_diff": 1.2167906761169434,
+    "posed_joints_mean_abs_diff": 0.20566104352474213,
+    "posed_joints_rmse": 0.29048383235931396,
+    "root_positions_max_abs_diff": 0.7345037460327148,
+    "root_positions_mean_abs_diff": 0.19839595258235931,
+    "root_positions_rmse": 0.2982445955276489,
+    "num_frames": 100,
+    "video_original": "/home/lzsh2025/kimodo-viser/kimodo_scene_project/outputs/test_no_scene/orig_run_quickly_then_stop.mp4",
+    "video_sceneco": "/home/lzsh2025/kimodo-viser/kimodo_scene_project/outputs/test_no_scene/sceneco_run_quickly_then_stop.mp4"
+  },
+  {
+    "prompt": "raise hands and wave",
+    "posed_joints_max_abs_diff": 0.5424376726150513,
+    "posed_joints_mean_abs_diff": 0.06504274159669876,
+    "posed_joints_rmse": 0.10032178461551666,
+    "root_positions_max_abs_diff": 0.022313758730888367,
+    "root_positions_mean_abs_diff": 0.007930414751172066,
+    "root_positions_rmse": 0.010479530319571495,
+    "num_frames": 80,
+    "video_original": "/home/lzsh2025/kimodo-viser/kimodo_scene_project/outputs/test_no_scene/orig_raise_hands_and_wave.mp4",
+    "video_sceneco": "/home/lzsh2025/kimodo-viser/kimodo_scene_project/outputs/test_no_scene/sceneco_raise_hands_and_wave.mp4"
+  },
+  {
+    "prompt": "bend down to pick up something",
+    "posed_joints_max_abs_diff": 0.8341054916381836,
+    "posed_joints_mean_abs_diff": 0.16070547699928284,
+    "posed_joints_rmse": 0.2265758216381073,
+    "root_positions_max_abs_diff": 0.3310776948928833,
+    "root_positions_mean_abs_diff": 0.07696317136287689,
+    "root_positions_rmse": 0.10926836729049683,
+    "num_frames": 100,
+    "video_original": "/home/lzsh2025/kimodo-viser/kimodo_scene_project/outputs/test_no_scene/orig_bend_down_to_pick_up_something.mp4",
+    "video_sceneco": "/home/lzsh2025/kimodo-viser/kimodo_scene_project/outputs/test_no_scene/sceneco_bend_down_to_pick_up_something.mp4"
+  },
+  {
+    "prompt": "jump up and down",
+    "posed_joints_max_abs_diff": 0.697576642036438,
+    "posed_joints_mean_abs_diff": 0.10973446816205978,
+    "posed_joints_rmse": 0.15582625567913055,
+    "root_positions_max_abs_diff": 0.19820380210876465,
+    "root_positions_mean_abs_diff": 0.033640649169683456,
+    "root_positions_rmse": 0.052772700786590576,
+    "num_frames": 60,
+    "video_original": "/home/lzsh2025/kimodo-viser/kimodo_scene_project/outputs/test_no_scene/orig_jump_up_and_down.mp4",
+    "video_sceneco": "/home/lzsh2025/kimodo-viser/kimodo_scene_project/outputs/test_no_scene/sceneco_jump_up_and_down.mp4"
+  },
+  {
+    "prompt": "walk in a circle",
+    "posed_joints_max_abs_diff": 1.427335500717163,
+    "posed_joints_mean_abs_diff": 0.2498462200164795,
+    "posed_joints_rmse": 0.37301549315452576,
+    "root_positions_max_abs_diff": 1.1024192571640015,
+    "root_positions_mean_abs_diff": 0.20681145787239075,
+    "root_positions_rmse": 0.322386771440506,
+    "num_frames": 120,
+    "video_original": "/home/lzsh2025/kimodo-viser/kimodo_scene_project/outputs/test_no_scene/orig_walk_in_a_circle.mp4",
+    "video_sceneco": "/home/lzsh2025/kimodo-viser/kimodo_scene_project/outputs/test_no_scene/sceneco_walk_in_a_circle.mp4"
+  }
+]

@@ -1,0 +1,93 @@
+{
+  "single_vit": {
+    "num_batches": 2,
+    "total_frames": 858,
+    "mse_with_scene": 4.11059,
+    "mse_no_scene": 3.823105,
+    "root_mse_with": 0.196844,
+    "root_mse_no": 5.543429,
+    "body_mse_with": 4.16435,
+    "body_mse_no": 3.799474,
+    "delta_mse": 0.287485,
+    "delta_root": -5.346585,
+    "delta_body": 0.364876
+  },
+  "dual_vit": {
+    "num_batches": 2,
+    "total_frames": 858,
+    "mse_with_scene": 3.564793,
+    "mse_no_scene": 3.222009,
+    "root_mse_with": 0.133433,
+    "root_mse_no": 6.291556,
+    "body_mse_with": 3.611927,
+    "body_mse_no": 3.179845,
+    "delta_mse": 0.342784,
+    "delta_root": -6.158123,
+    "delta_body": 0.432082
+  },
+  "dual_vit_floor": {
+    "num_batches": 2,
+    "total_frames": 858,
+    "mse_with_scene": 4.940993,
+    "mse_no_scene": 4.210455,
+    "root_mse_with": 0.367586,
+    "root_mse_no": 5.680977,
+    "body_mse_with": 5.003814,
+    "body_mse_no": 4.190256,
+    "delta_mse": 0.730537,
+    "delta_root": -5.313391,
+    "delta_body": 0.813559
+  },
+  "root_only": {
+    "num_batches": 2,
+    "total_frames": 858,
+    "mse_with_scene": 4.091963,
+    "mse_no_scene": 3.593258,
+    "root_mse_with": 0.15706,
+    "root_mse_no": 6.220003,
+    "body_mse_with": 4.146014,
+    "body_mse_no": 3.557177,
+    "delta_mse": 0.498705,
+    "delta_root": -6.062943,
+    "delta_body": 0.588837
+  },
+  "body_only": {
+    "num_batches": 2,
+    "total_frames": 858,
+    "mse_with_scene": 0.9782,
+    "mse_no_scene": 3.134446,
+    "root_mse_with": 6.241119,
+    "root_mse_no": 6.241119,
+    "body_mse_with": 0.905907,
+    "body_mse_no": 3.091772,
+    "delta_mse": -2.156246,
+    "delta_root": 0.0,
+    "delta_body": -2.185865
+  },
+  "stage1_root_only": {
+    "num_batches": 2,
+    "total_frames": 858,
+    "mse_with_scene": 3.675569,
+    "mse_no_scene": 3.360772,
+    "root_mse_with": 0.129292,
+    "root_mse_no": 6.260615,
+    "body_mse_with": 3.724282,
+    "body_mse_no": 3.320939,
+    "delta_mse": 0.314797,
+    "delta_root": -6.131323,
+    "delta_body": 0.403343
+  },
+  "root_body_merged": {
+    "num_batches": 2,
+    "total_frames": 858,
+    "mse_with_scene": 0.942955,
+    "mse_no_scene": 3.256652,
+    "root_mse_with": 0.093082,
+    "root_mse_no": 6.349234,
+    "body_mse_with": 0.954629,
+    "body_mse_no": 3.214172,
+    "delta_mse": -2.313697,
+    "delta_root": -6.256152,
+    "delta_body": -2.259543
+  }
+}

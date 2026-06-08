@@ -1,0 +1,10 @@
+{
+  "seed": 42,
+  "num_samples": 1,
+  "num_frames": 86,
+  "num_denoising_steps": 50,
+  "prompt": "walk forward",
+  "ckpt_path": "kimodo_scene_project/outputs/root_only_sceneco/checkpoints/best_checkpoint.pt",
+  "dual_vit": true,
+  "root_voxel_mode": "full"
+}

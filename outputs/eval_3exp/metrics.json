@@ -1,0 +1,20 @@
+{
+  "single_vit": {
+    "mean_pose_diff": 5.491241455078125,
+    "first_frame_L2": 2.343339443206787,
+    "FID_approx": 162835.32537632913,
+    "num_samples": 25
+  },
+  "dual_vit": {
+    "mean_pose_diff": 5.650338172912598,
+    "first_frame_L2": 2.3770439624786377,
+    "FID_approx": 160688.83751152013,
+    "num_samples": 25
+  },
+  "dual_vit_floor": {
+    "mean_pose_diff": 4.936371326446533,
+    "first_frame_L2": 2.221794843673706,
+    "FID_approx": 137546.5941465862,
+    "num_samples": 25
+  }
+}

@@ -1,0 +1,50 @@
+{
+  "004.npy": {
+    "shape": [
+      300,
+      100,
+      400
+    ],
+    "occupancy_ratio": 0.5119322538375854,
+    "total_voxels": 6143187,
+    "occupied_z_slices": 400,
+    "max_z_occupancy": 30000,
+    "occupied_y_slices": 100,
+    "occupied_x_slices": 300,
+    "ground_occupancy": 1.0,
+    "bottom_quartile_occ": 0.9934886693954468,
+    "top_quartile_occ": 0.5692543387413025
+  },
+  "004_mirror.npy": {
+    "shape": [
+      300,
+      100,
+      400
+    ],
+    "occupancy_ratio": 0.5119322538375854,
+    "total_voxels": 6143187,
+    "occupied_z_slices": 400,
+    "max_z_occupancy": 30000,
+    "occupied_y_slices": 100,
+    "occupied_x_slices": 300,
+    "ground_occupancy": 1.0,
+    "bottom_quartile_occ": 0.9934886693954468,
+    "top_quartile_occ": 0.5692543387413025
+  },
+  "005.npy": {
+    "shape": [
+      300,
+      100,
+      400
+    ],
+    "occupancy_ratio": 0.5499361753463745,
+    "total_voxels": 6599234,
+    "occupied_z_slices": 400,
+    "max_z_occupancy": 30000,
+    "occupied_y_slices": 100,
+    "occupied_x_slices": 300,
+    "ground_occupancy": 1.0,
+    "bottom_quartile_occ": 1.0,
+    "top_quartile_occ": 0.5357000231742859
+  }
+}

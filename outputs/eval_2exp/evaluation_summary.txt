@@ -1,0 +1,13 @@
+2-Experiment Evaluation Summary
+============================================================
+
+Root-Only SceneCo (root_only)
+  checkpoint: kimodo_scene_project/outputs/root_only_sceneco/checkpoints/best_checkpoint.pt
+  use_in_root_model: True
+  use_in_body_model: False
+
+Body-Only SceneCo (body_only)
+  checkpoint: kimodo_scene_project/outputs/body_only_sceneco/checkpoints/best_checkpoint.pt
+  use_in_root_model: False
+  use_in_body_model: True
+

@@ -1,0 +1,1 @@
+from .kimodo_model_exp2 import KimodoSceneCoExp2

@@ -1,0 +1,1705 @@
+{
+  "metadata": {
+    "scene_dir": "LINGO/dataset/dataset/Scene",
+    "motion_dir": "soma_converted_all/lingo"
+  },
+  "scenes": {
+    "004.npy": {
+      "path": "LINGO/dataset/dataset/Scene/004.npy",
+      "valid": true,
+      "issues": [],
+      "shape": [
+        300,
+        100,
+        400
+      ],
+      "dtype": "bool",
+      "occupancy_ratio": 0.511932,
+      "value_range": [
+        0.0,
+        1.0
+      ]
+    },
+    "004_mirror.npy": {
+      "path": "LINGO/dataset/dataset/Scene/004_mirror.npy",
+      "valid": true,
+      "issues": [],
+      "shape": [
+        300,
+        100,
+        400
+      ],
+      "dtype": "bool",
+      "occupancy_ratio": 0.511932,
+      "value_range": [
+        0.0,
+        1.0
+      ]
+    },
+    "005.npy": {
+      "path": "LINGO/dataset/dataset/Scene/005.npy",
+      "valid": true,
+      "issues": [],
+      "shape": [
+        300,
+        100,
+        400
+      ],
+      "dtype": "bool",
+      "occupancy_ratio": 0.549936,
+      "value_range": [
+        0.0,
+        1.0
+      ]
+    },
+    "005_mirror.npy": {
+      "path": "LINGO/dataset/dataset/Scene/005_mirror.npy",
+      "valid": true,
+      "issues": [],
+      "shape": [
+        300,
+        100,
+        400
+      ],
+      "dtype": "bool",
+      "occupancy_ratio": 0.549936,
+      "value_range": [
+        0.0,
+        1.0
+      ]
+    },
+    "006.npy": {
+      "path": "LINGO/dataset/dataset/Scene/006.npy",
+      "valid": true,
+      "issues": [],
+      "shape": [
+        300,
+        100,
+        400
+      ],
+      "dtype": "bool",
+      "occupancy_ratio": 0.540029,
+      "value_range": [
+        0.0,
+        1.0
+      ]
+    }
+  },
+  "motions": {
+    "seg_00000.npz": {
+      "path": "soma_converted_all/lingo/seg_00000.npz",
+      "valid": true,
+      "issues": [],
+      "keys": [
+        "conversion_method",
+        "dataset",
+        "end_frame",
+        "joint_names_soma",
+        "joints_original",
+        "num_frames",
+        "parents_soma",
+        "scene_mesh_path",
+        "scene_name",
+        "seg_id",
+        "smpl22_joints",
+        "soma77_joints",
+        "soma_mean_error",
+        "soma_poses_rotvec",
+        "soma_root_transl",
+        "start_frame"
+      ],
+      "arrays": {
+        "joints_original": {
+          "shape": [
+            161,
+            28,
+            3
+          ],
+          "dtype": "float64",
+          "min": -0.7156476974487305,
+          "max": 1.6673246622085571,
+          "mean": 0.41334685728786175,
+          "has_nan": false,
+          "has_inf": false
+        },
+        "smpl22_joints": {
+          "shape": [
+            161,
+            22,
+            3
+          ],
+          "dtype": "float32",
+          "min": -0.7156476974487305,
+          "max": 1.6595287322998047,
+          "mean": 0.3969000577926636,
+          "has_nan": false,
+          "has_inf": false
+        },
+        "soma77_joints": {
+          "shape": [
+            161,
+            77,
+            3
+          ],
+          "dtype": "float32",
+          "min": -0.745647668838501,
+          "max": 1.7184076309204102,
+          "mean": 0.4033936560153961,
+          "has_nan": false,
+          "has_inf": false
+        },
+        "soma_poses_rotvec": {
+          "shape": [
+            161,
+            78,
+            3
+          ],
+          "dtype": "float32",
+          "min": -1.2622935771942139,
+          "max": 1.2107322216033936,
+          "mean": 0.0049589043483138084,
+          "has_nan": false,
+          "has_inf": false
+        },
+        "soma_root_transl": {
+          "shape": [
+            161,
+            3
+          ],
+          "dtype": "float32",
+          "min": -0.42233097553253174,
+          "max": 1.5312769412994385,
+          "mean": 0.4779546856880188,
+          "has_nan": false,
+          "has_inf": false
+        },
+        "soma_mean_error": {
+          "shape": [],
+          "dtype": "float64",
+          "min": 0.004792068153619766,
+          "max": 0.004792068153619766,
+          "mean": 0.004792068153619766,
+          "has_nan": false,
+          "has_inf": false
+        },
+        "joint_names_soma": {
+          "shape": [
+            77
+          ],
+          "dtype": "<U18",
+          "min": null,
+          "max": null,
+          "mean": null,
+          "has_nan": false,
+          "has_inf": false
+        },
+        "parents_soma": {
+          "shape": [
+            77
+          ],
+          "dtype": "int64",
+          "min": null,
+          "max": null,
+          "mean": null,
+          "has_nan": false,
+          "has_inf": false
+        },
+        "dataset": {
+          "shape": [],
+          "dtype": "<U5",
+          "min": null,
+          "max": null,
+          "mean": null,
+          "has_nan": false,
+          "has_inf": false
+        },
+        "seg_id": {
+          "shape": [],
+          "dtype": "<U9",
+          "min": null,
+          "max": null,
+          "mean": null,
+          "has_nan": false,
+          "has_inf": false
+        },
+        "start_frame": {
+          "shape": [],
+          "dtype": "int64",
+          "min": null,
+          "max": null,
+          "mean": null,
+          "has_nan": false,
+          "has_inf": false
+        },
+        "end_frame": {
+          "shape": [],
+          "dtype": "int64",
+          "min": null,
+          "max": null,
+          "mean": null,
+          "has_nan": false,
+          "has_inf": false
+        },
+        "num_frames": {
+          "shape": [],
+          "dtype": "int64",
+          "min": null,
+          "max": null,
+          "mean": null,
+          "has_nan": false,
+          "has_inf": false
+        },
+        "scene_name": {
+          "shape": [],
+          "dtype": "<U3",
+          "min": null,
+          "max": null,
+          "mean": null,
+          "has_nan": false,
+          "has_inf": false
+        },
+        "scene_mesh_path": {
+          "shape": [],
+          "dtype": "<U72",
+          "min": null,
+          "max": null,
+          "mean": null,
+          "has_nan": false,
+          "has_inf": false
+        },
+        "conversion_method": {
+          "shape": [],
+          "dtype": "<U19",
+          "min": null,
+          "max": null,
+          "mean": null,
+          "has_nan": false,
+          "has_inf": false
+        }
+      }
+    },
+    "seg_00000_soma.npz": {
+      "path": "soma_converted_all/lingo/seg_00000_soma.npz",
+      "valid": true,
+      "issues": [
+        "missing motion key group: ['posed_joints', 'soma77_joints', 'smpl22_joints']",
+        "missing motion key group: ['root_positions', 'soma_root_transl']"
+      ],
+      "keys": [
+        "absolute_pose",
+        "identity_coeffs",
+        "identity_model_type",
+        "joint_names",
+        "joint_orient",
+        "keep_root",
+        "poses",
+        "rotation_repr",
+        "transl",
+        "unit"
+      ],
+      "arrays": {
+        "poses": {
+          "shape": [
+            161,
+            77,
+            3
+          ],
+          "dtype": "float32",
+          "min": -1.2622935771942139,
+          "max": 1.2107322216033936,
+          "mean": 0.005023305304348469,
+          "has_nan": false,
+          "has_inf": false
+        },
+        "transl": {
+          "shape": [
+            161,
+            3
+          ],
+          "dtype": "float32",
+          "min": -0.42233097553253174,
+          "max": 1.5312769412994385,
+          "mean": 0.4779546856880188,
+          "has_nan": false,
+          "has_inf": false
+        },
+        "joint_names": {
+          "shape": [
+            77
+          ],
+          "dtype": "<U18",
+          "min": null,
+          "max": null,
+          "mean": null,
+          "has_nan": false,
+          "has_inf": false
+        },
+        "identity_model_type": {
+          "shape": [],
+          "dtype": "<U4",
+          "min": null,
+          "max": null,
+          "mean": null,
+          "has_nan": false,
+          "has_inf": false
+        },
+        "identity_coeffs": {
+          "shape": [
+            1,
+            10
+          ],
+          "dtype": "float32",
+          "min": 0.0,
+          "max": 0.0,
+          "mean": 0.0,
+          "has_nan": false,
+          "has_inf": false
+        },
+        "keep_root": {
+          "shape": [],
+          "dtype": "bool",
+          "min": null,
+          "max": null,
+          "mean": null,
+          "has_nan": false,
+          "has_inf": false
+        },
+        "absolute_pose": {
+          "shape": [],
+          "dtype": "bool",
+          "min": null,
+          "max": null,
+          "mean": null,
+          "has_nan": false,
+          "has_inf": false
+        },
+        "rotation_repr": {
+          "shape": [],
+          "dtype": "<U6",
+          "min": null,
+          "max": null,
+          "mean": null,
+          "has_nan": false,
+          "has_inf": false
+        },
+        "unit": {
+          "shape": [],
+          "dtype": "<U6",
+          "min": null,
+          "max": null,
+          "mean": null,
+          "has_nan": false,
+          "has_inf": false
+        },
+        "joint_orient": {
+          "shape": [
+            78,
+            3,
+            3
+          ],
+          "dtype": "float32",
+          "min": -1.0,
+          "max": 1.0,
+          "mean": 0.1436355859041214,
+          "has_nan": false,
+          "has_inf": false
+        }
+      }
+    },
+    "seg_00001.npz": {
+      "path": "soma_converted_all/lingo/seg_00001.npz",
+      "valid": true,
+      "issues": [],
+      "keys": [
+        "conversion_method",
+        "dataset",
+        "end_frame",
+        "joint_names_soma",
+        "joints_original",
+        "num_frames",
+        "parents_soma",
+        "scene_mesh_path",
+        "scene_name",
+        "seg_id",
+        "smpl22_joints",
+        "soma77_joints",
+        "soma_mean_error",
+        "soma_poses_rotvec",
+        "soma_root_transl",
+        "start_frame"
+      ],
+      "arrays": {
+        "joints_original": {
+          "shape": [
+            163,
+            28,
+            3
+          ],
+          "dtype": "float64",
+          "min": -1.0996861457824707,
+          "max": 2.1003079414367676,
+          "mean": 0.5924093639508016,
+          "has_nan": false,
+          "has_inf": false
+        },
+        "smpl22_joints": {
+          "shape": [
+            163,
+            22,
+            3
+          ],
+          "dtype": "float32",
+          "min": -1.0996861457824707,
+          "max": 2.1003079414367676,
+          "mean": 0.5678987503051758,
+          "has_nan": false,
+          "has_inf": false
+        },
+        "soma77_joints": {
+          "shape": [
+            163,
+            77,
+            3
+          ],
+          "dtype": "float32",
+          "min": -1.0996861457824707,
+          "max": 2.130307912826538,
+          "mean": 0.5486778616905212,
+          "has_nan": false,
+          "has_inf": false
+        },
+        "soma_poses_rotvec": {
+          "shape": [
+            163,
+            78,
+            3
+          ],
+          "dtype": "float32",
+          "min": -1.4522385597229004,
+          "max": 2.1085829734802246,
+          "mean": 0.013559131883084774,
+          "has_nan": false,
+          "has_inf": false
+        },
+        "soma_root_transl": {
+          "shape": [
+            163,
+            3
+          ],
+          "dtype": "float32",
+          "min": -0.9220269918441772,
+          "max": 1.5836390256881714,
+          "mean": 0.5870888233184814,
+          "has_nan": false,
+          "has_inf": false
+        },
+        "soma_mean_error": {
+          "shape": [],
+          "dtype": "float64",
+          "min": 0.00761829549446702,
+          "max": 0.00761829549446702,
+          "mean": 0.00761829549446702,
+          "has_nan": false,
+          "has_inf": false
+        },
+        "joint_names_soma": {
+          "shape": [
+            77
+          ],
+          "dtype": "<U18",
+          "min": null,
+          "max": null,
+          "mean": null,
+          "has_nan": false,
+          "has_inf": false
+        },
+        "parents_soma": {
+          "shape": [
+            77
+          ],
+          "dtype": "int64",
+          "min": null,
+          "max": null,
+          "mean": null,
+          "has_nan": false,
+          "has_inf": false
+        },
+        "dataset": {
+          "shape": [],
+          "dtype": "<U5",
+          "min": null,
+          "max": null,
+          "mean": null,
+          "has_nan": false,
+          "has_inf": false
+        },
+        "seg_id": {
+          "shape": [],
+          "dtype": "<U9",
+          "min": null,
+          "max": null,
+          "mean": null,
+          "has_nan": false,
+          "has_inf": false
+        },
+        "start_frame": {
+          "shape": [],
+          "dtype": "int64",
+          "min": null,
+          "max": null,
+          "mean": null,
+          "has_nan": false,
+          "has_inf": false
+        },
+        "end_frame": {
+          "shape": [],
+          "dtype": "int64",
+          "min": null,
+          "max": null,
+          "mean": null,
+          "has_nan": false,
+          "has_inf": false
+        },
+        "num_frames": {
+          "shape": [],
+          "dtype": "int64",
+          "min": null,
+          "max": null,
+          "mean": null,
+          "has_nan": false,
+          "has_inf": false
+        },
+        "scene_name": {
+          "shape": [],
+          "dtype": "<U3",
+          "min": null,
+          "max": null,
+          "mean": null,
+          "has_nan": false,
+          "has_inf": false
+        },
+        "scene_mesh_path": {
+          "shape": [],
+          "dtype": "<U72",
+          "min": null,
+          "max": null,
+          "mean": null,
+          "has_nan": false,
+          "has_inf": false
+        },
+        "conversion_method": {
+          "shape": [],
+          "dtype": "<U19",
+          "min": null,
+          "max": null,
+          "mean": null,
+          "has_nan": false,
+          "has_inf": false
+        }
+      }
+    },
+    "seg_00001_soma.npz": {
+      "path": "soma_converted_all/lingo/seg_00001_soma.npz",
+      "valid": true,
+      "issues": [
+        "missing motion key group: ['posed_joints', 'soma77_joints', 'smpl22_joints']",
+        "missing motion key group: ['root_positions', 'soma_root_transl']"
+      ],
+      "keys": [
+        "absolute_pose",
+        "identity_coeffs",
+        "identity_model_type",
+        "joint_names",
+        "joint_orient",
+        "keep_root",
+        "poses",
+        "rotation_repr",
+        "transl",
+        "unit"
+      ],
+      "arrays": {
+        "poses": {
+          "shape": [
+            163,
+            77,
+            3
+          ],
+          "dtype": "float32",
+          "min": -1.4522385597229004,
+          "max": 2.1085829734802246,
+          "mean": 0.013735226355493069,
+          "has_nan": false,
+          "has_inf": false
+        },
+        "transl": {
+          "shape": [
+            163,
+            3
+          ],
+          "dtype": "float32",
+          "min": -0.9220269918441772,
+          "max": 1.5836390256881714,
+          "mean": 0.5870888233184814,
+          "has_nan": false,
+          "has_inf": false
+        },
+        "joint_names": {
+          "shape": [
+            77
+          ],
+          "dtype": "<U18",
+          "min": null,
+          "max": null,
+          "mean": null,
+          "has_nan": false,
+          "has_inf": false
+        },
+        "identity_model_type": {
+          "shape": [],
+          "dtype": "<U4",
+          "min": null,
+          "max": null,
+          "mean": null,
+          "has_nan": false,
+          "has_inf": false
+        },
+        "identity_coeffs": {
+          "shape": [
+            1,
+            10
+          ],
+          "dtype": "float32",
+          "min": 0.0,
+          "max": 0.0,
+          "mean": 0.0,
+          "has_nan": false,
+          "has_inf": false
+        },
+        "keep_root": {
+          "shape": [],
+          "dtype": "bool",
+          "min": null,
+          "max": null,
+          "mean": null,
+          "has_nan": false,
+          "has_inf": false
+        },
+        "absolute_pose": {
+          "shape": [],
+          "dtype": "bool",
+          "min": null,
+          "max": null,
+          "mean": null,
+          "has_nan": false,
+          "has_inf": false
+        },
+        "rotation_repr": {
+          "shape": [],
+          "dtype": "<U6",
+          "min": null,
+          "max": null,
+          "mean": null,
+          "has_nan": false,
+          "has_inf": false
+        },
+        "unit": {
+          "shape": [],
+          "dtype": "<U6",
+          "min": null,
+          "max": null,
+          "mean": null,
+          "has_nan": false,
+          "has_inf": false
+        },
+        "joint_orient": {
+          "shape": [
+            78,
+            3,
+            3
+          ],
+          "dtype": "float32",
+          "min": -1.0,
+          "max": 1.0,
+          "mean": 0.1436355859041214,
+          "has_nan": false,
+          "has_inf": false
+        }
+      }
+    },
+    "seg_00002.npz": {
+      "path": "soma_converted_all/lingo/seg_00002.npz",
+      "valid": true,
+      "issues": [],
+      "keys": [
+        "conversion_method",
+        "dataset",
+        "end_frame",
+        "joint_names_soma",
+        "joints_original",
+        "num_frames",
+        "parents_soma",
+        "scene_mesh_path",
+        "scene_name",
+        "seg_id",
+        "smpl22_joints",
+        "soma77_joints",
+        "soma_mean_error",
+        "soma_poses_rotvec",
+        "soma_root_transl",
+        "start_frame"
+      ],
+      "arrays": {
+        "joints_original": {
+          "shape": [
+            128,
+            28,
+            3
+          ],
+          "dtype": "float64",
+          "min": -1.0439379215240479,
+          "max": 1.8226863145828247,
+          "mean": 0.550299052126883,
+          "has_nan": false,
+          "has_inf": false
+        },
+        "smpl22_joints": {
+          "shape": [
+            128,
+            22,
+            3
+          ],
+          "dtype": "float32",
+          "min": -1.0439379215240479,
+          "max": 1.8226863145828247,
+          "mean": 0.523223876953125,
+          "has_nan": false,
+          "has_inf": false
+        },
+        "soma77_joints": {
+          "shape": [
+            128,
+            77,
+            3
+          ],
+          "dtype": "float32",
+          "min": -1.0439379215240479,
+          "max": 1.8226863145828247,
+          "mean": 0.4972608685493469,
+          "has_nan": false,
+          "has_inf": false
+        },
+        "soma_poses_rotvec": {
+          "shape": [
+            128,
+            78,
+            3
+          ],
+          "dtype": "float32",
+          "min": -1.4773012399673462,
+          "max": 2.0527775287628174,
+          "mean": 0.015448255464434624,
+          "has_nan": false,
+          "has_inf": false
+        },
+        "soma_root_transl": {
+          "shape": [
+            128,
+            3
+          ],
+          "dtype": "float32",
+          "min": -0.9267024993896484,
+          "max": 1.546677827835083,
+          "mean": 0.5458371639251709,
+          "has_nan": false,
+          "has_inf": false
+        },
+        "soma_mean_error": {
+          "shape": [],
+          "dtype": "float64",
+          "min": 0.008476491086184978,
+          "max": 0.008476491086184978,
+          "mean": 0.008476491086184978,
+          "has_nan": false,
+          "has_inf": false
+        },
+        "joint_names_soma": {
+          "shape": [
+            77
+          ],
+          "dtype": "<U18",
+          "min": null,
+          "max": null,
+          "mean": null,
+          "has_nan": false,
+          "has_inf": false
+        },
+        "parents_soma": {
+          "shape": [
+            77
+          ],
+          "dtype": "int64",
+          "min": null,
+          "max": null,
+          "mean": null,
+          "has_nan": false,
+          "has_inf": false
+        },
+        "dataset": {
+          "shape": [],
+          "dtype": "<U5",
+          "min": null,
+          "max": null,
+          "mean": null,
+          "has_nan": false,
+          "has_inf": false
+        },
+        "seg_id": {
+          "shape": [],
+          "dtype": "<U9",
+          "min": null,
+          "max": null,
+          "mean": null,
+          "has_nan": false,
+          "has_inf": false
+        },
+        "start_frame": {
+          "shape": [],
+          "dtype": "int64",
+          "min": null,
+          "max": null,
+          "mean": null,
+          "has_nan": false,
+          "has_inf": false
+        },
+        "end_frame": {
+          "shape": [],
+          "dtype": "int64",
+          "min": null,
+          "max": null,
+          "mean": null,
+          "has_nan": false,
+          "has_inf": false
+        },
+        "num_frames": {
+          "shape": [],
+          "dtype": "int64",
+          "min": null,
+          "max": null,
+          "mean": null,
+          "has_nan": false,
+          "has_inf": false
+        },
+        "scene_name": {
+          "shape": [],
+          "dtype": "<U3",
+          "min": null,
+          "max": null,
+          "mean": null,
+          "has_nan": false,
+          "has_inf": false
+        },
+        "scene_mesh_path": {
+          "shape": [],
+          "dtype": "<U72",
+          "min": null,
+          "max": null,
+          "mean": null,
+          "has_nan": false,
+          "has_inf": false
+        },
+        "conversion_method": {
+          "shape": [],
+          "dtype": "<U19",
+          "min": null,
+          "max": null,
+          "mean": null,
+          "has_nan": false,
+          "has_inf": false
+        }
+      }
+    },
+    "seg_00002_soma.npz": {
+      "path": "soma_converted_all/lingo/seg_00002_soma.npz",
+      "valid": true,
+      "issues": [
+        "missing motion key group: ['posed_joints', 'soma77_joints', 'smpl22_joints']",
+        "missing motion key group: ['root_positions', 'soma_root_transl']"
+      ],
+      "keys": [
+        "absolute_pose",
+        "identity_coeffs",
+        "identity_model_type",
+        "joint_names",
+        "joint_orient",
+        "keep_root",
+        "poses",
+        "rotation_repr",
+        "transl",
+        "unit"
+      ],
+      "arrays": {
+        "poses": {
+          "shape": [
+            128,
+            77,
+            3
+          ],
+          "dtype": "float32",
+          "min": -1.4773012399673462,
+          "max": 2.0527775287628174,
+          "mean": 0.01564888097345829,
+          "has_nan": false,
+          "has_inf": false
+        },
+        "transl": {
+          "shape": [
+            128,
+            3
+          ],
+          "dtype": "float32",
+          "min": -0.9267024993896484,
+          "max": 1.546677827835083,
+          "mean": 0.5458371639251709,
+          "has_nan": false,
+          "has_inf": false
+        },
+        "joint_names": {
+          "shape": [
+            77
+          ],
+          "dtype": "<U18",
+          "min": null,
+          "max": null,
+          "mean": null,
+          "has_nan": false,
+          "has_inf": false
+        },
+        "identity_model_type": {
+          "shape": [],
+          "dtype": "<U4",
+          "min": null,
+          "max": null,
+          "mean": null,
+          "has_nan": false,
+          "has_inf": false
+        },
+        "identity_coeffs": {
+          "shape": [
+            1,
+            10
+          ],
+          "dtype": "float32",
+          "min": 0.0,
+          "max": 0.0,
+          "mean": 0.0,
+          "has_nan": false,
+          "has_inf": false
+        },
+        "keep_root": {
+          "shape": [],
+          "dtype": "bool",
+          "min": null,
+          "max": null,
+          "mean": null,
+          "has_nan": false,
+          "has_inf": false
+        },
+        "absolute_pose": {
+          "shape": [],
+          "dtype": "bool",
+          "min": null,
+          "max": null,
+          "mean": null,
+          "has_nan": false,
+          "has_inf": false
+        },
+        "rotation_repr": {
+          "shape": [],
+          "dtype": "<U6",
+          "min": null,
+          "max": null,
+          "mean": null,
+          "has_nan": false,
+          "has_inf": false
+        },
+        "unit": {
+          "shape": [],
+          "dtype": "<U6",
+          "min": null,
+          "max": null,
+          "mean": null,
+          "has_nan": false,
+          "has_inf": false
+        },
+        "joint_orient": {
+          "shape": [
+            78,
+            3,
+            3
+          ],
+          "dtype": "float32",
+          "min": -1.0,
+          "max": 1.0,
+          "mean": 0.1436355859041214,
+          "has_nan": false,
+          "has_inf": false
+        }
+      }
+    },
+    "seg_00003.npz": {
+      "path": "soma_converted_all/lingo/seg_00003.npz",
+      "valid": true,
+      "issues": [],
+      "keys": [
+        "conversion_method",
+        "dataset",
+        "end_frame",
+        "joint_names_soma",
+        "joints_original",
+        "num_frames",
+        "parents_soma",
+        "scene_mesh_path",
+        "scene_name",
+        "seg_id",
+        "smpl22_joints",
+        "soma77_joints",
+        "soma_mean_error",
+        "soma_poses_rotvec",
+        "soma_root_transl",
+        "start_frame"
+      ],
+      "arrays": {
+        "joints_original": {
+          "shape": [
+            91,
+            28,
+            3
+          ],
+          "dtype": "float64",
+          "min": -0.6875823736190796,
+          "max": 1.7759772539138794,
+          "mean": 0.5991810923242432,
+          "has_nan": false,
+          "has_inf": false
+        },
+        "smpl22_joints": {
+          "shape": [
+            91,
+            22,
+            3
+          ],
+          "dtype": "float32",
+          "min": -0.6545878648757935,
+          "max": 1.7759772539138794,
+          "mean": 0.5846909284591675,
+          "has_nan": false,
+          "has_inf": false
+        },
+        "soma77_joints": {
+          "shape": [
+            91,
+            77,
+            3
+          ],
+          "dtype": "float32",
+          "min": -0.7113524079322815,
+          "max": 1.80597722530365,
+          "mean": 0.500198483467102,
+          "has_nan": false,
+          "has_inf": false
+        },
+        "soma_poses_rotvec": {
+          "shape": [
+            91,
+            78,
+            3
+          ],
+          "dtype": "float32",
+          "min": -1.317081093788147,
+          "max": 3.092740535736084,
+          "mean": 0.009923831559717655,
+          "has_nan": false,
+          "has_inf": false
+        },
+        "soma_root_transl": {
+          "shape": [
+            91,
+            3
+          ],
+          "dtype": "float32",
+          "min": -0.521692156791687,
+          "max": 1.515116572380066,
+          "mean": 0.6726932525634766,
+          "has_nan": false,
+          "has_inf": false
+        },
+        "soma_mean_error": {
+          "shape": [],
+          "dtype": "float64",
+          "min": 0.005206355359405279,
+          "max": 0.005206355359405279,
+          "mean": 0.005206355359405279,
+          "has_nan": false,
+          "has_inf": false
+        },
+        "joint_names_soma": {
+          "shape": [
+            77
+          ],
+          "dtype": "<U18",
+          "min": null,
+          "max": null,
+          "mean": null,
+          "has_nan": false,
+          "has_inf": false
+        },
+        "parents_soma": {
+          "shape": [
+            77
+          ],
+          "dtype": "int64",
+          "min": null,
+          "max": null,
+          "mean": null,
+          "has_nan": false,
+          "has_inf": false
+        },
+        "dataset": {
+          "shape": [],
+          "dtype": "<U5",
+          "min": null,
+          "max": null,
+          "mean": null,
+          "has_nan": false,
+          "has_inf": false
+        },
+        "seg_id": {
+          "shape": [],
+          "dtype": "<U9",
+          "min": null,
+          "max": null,
+          "mean": null,
+          "has_nan": false,
+          "has_inf": false
+        },
+        "start_frame": {
+          "shape": [],
+          "dtype": "int64",
+          "min": null,
+          "max": null,
+          "mean": null,
+          "has_nan": false,
+          "has_inf": false
+        },
+        "end_frame": {
+          "shape": [],
+          "dtype": "int64",
+          "min": null,
+          "max": null,
+          "mean": null,
+          "has_nan": false,
+          "has_inf": false
+        },
+        "num_frames": {
+          "shape": [],
+          "dtype": "int64",
+          "min": null,
+          "max": null,
+          "mean": null,
+          "has_nan": false,
+          "has_inf": false
+        },
+        "scene_name": {
+          "shape": [],
+          "dtype": "<U3",
+          "min": null,
+          "max": null,
+          "mean": null,
+          "has_nan": false,
+          "has_inf": false
+        },
+        "scene_mesh_path": {
+          "shape": [],
+          "dtype": "<U72",
+          "min": null,
+          "max": null,
+          "mean": null,
+          "has_nan": false,
+          "has_inf": false
+        },
+        "conversion_method": {
+          "shape": [],
+          "dtype": "<U19",
+          "min": null,
+          "max": null,
+          "mean": null,
+          "has_nan": false,
+          "has_inf": false
+        }
+      }
+    },
+    "seg_00003_soma.npz": {
+      "path": "soma_converted_all/lingo/seg_00003_soma.npz",
+      "valid": true,
+      "issues": [
+        "missing motion key group: ['posed_joints', 'soma77_joints', 'smpl22_joints']",
+        "missing motion key group: ['root_positions', 'soma_root_transl']"
+      ],
+      "keys": [
+        "absolute_pose",
+        "identity_coeffs",
+        "identity_model_type",
+        "joint_names",
+        "joint_orient",
+        "keep_root",
+        "poses",
+        "rotation_repr",
+        "transl",
+        "unit"
+      ],
+      "arrays": {
+        "poses": {
+          "shape": [
+            91,
+            77,
+            3
+          ],
+          "dtype": "float32",
+          "min": -1.317081093788147,
+          "max": 3.092740535736084,
+          "mean": 0.010052713565528393,
+          "has_nan": false,
+          "has_inf": false
+        },
+        "transl": {
+          "shape": [
+            91,
+            3
+          ],
+          "dtype": "float32",
+          "min": -0.521692156791687,
+          "max": 1.515116572380066,
+          "mean": 0.6726932525634766,
+          "has_nan": false,
+          "has_inf": false
+        },
+        "joint_names": {
+          "shape": [
+            77
+          ],
+          "dtype": "<U18",
+          "min": null,
+          "max": null,
+          "mean": null,
+          "has_nan": false,
+          "has_inf": false
+        },
+        "identity_model_type": {
+          "shape": [],
+          "dtype": "<U4",
+          "min": null,
+          "max": null,
+          "mean": null,
+          "has_nan": false,
+          "has_inf": false
+        },
+        "identity_coeffs": {
+          "shape": [
+            1,
+            10
+          ],
+          "dtype": "float32",
+          "min": 0.0,
+          "max": 0.0,
+          "mean": 0.0,
+          "has_nan": false,
+          "has_inf": false
+        },
+        "keep_root": {
+          "shape": [],
+          "dtype": "bool",
+          "min": null,
+          "max": null,
+          "mean": null,
+          "has_nan": false,
+          "has_inf": false
+        },
+        "absolute_pose": {
+          "shape": [],
+          "dtype": "bool",
+          "min": null,
+          "max": null,
+          "mean": null,
+          "has_nan": false,
+          "has_inf": false
+        },
+        "rotation_repr": {
+          "shape": [],
+          "dtype": "<U6",
+          "min": null,
+          "max": null,
+          "mean": null,
+          "has_nan": false,
+          "has_inf": false
+        },
+        "unit": {
+          "shape": [],
+          "dtype": "<U6",
+          "min": null,
+          "max": null,
+          "mean": null,
+          "has_nan": false,
+          "has_inf": false
+        },
+        "joint_orient": {
+          "shape": [
+            78,
+            3,
+            3
+          ],
+          "dtype": "float32",
+          "min": -1.0,
+          "max": 1.0,
+          "mean": 0.1436355859041214,
+          "has_nan": false,
+          "has_inf": false
+        }
+      }
+    },
+    "seg_00004.npz": {
+      "path": "soma_converted_all/lingo/seg_00004.npz",
+      "valid": true,
+      "issues": [],
+      "keys": [
+        "conversion_method",
+        "dataset",
+        "end_frame",
+        "joint_names_soma",
+        "joints_original",
+        "num_frames",
+        "parents_soma",
+        "scene_mesh_path",
+        "scene_name",
+        "seg_id",
+        "smpl22_joints",
+        "soma77_joints",
+        "soma_mean_error",
+        "soma_poses_rotvec",
+        "soma_root_transl",
+        "start_frame"
+      ],
+      "arrays": {
+        "joints_original": {
+          "shape": [
+            74,
+            28,
+            3
+          ],
+          "dtype": "float64",
+          "min": -0.905913233757019,
+          "max": 1.6276779174804688,
+          "mean": 0.13302783411283267,
+          "has_nan": false,
+          "has_inf": false
+        },
+        "smpl22_joints": {
+          "shape": [
+            74,
+            22,
+            3
+          ],
+          "dtype": "float32",
+          "min": -0.8669102191925049,
+          "max": 1.5833299160003662,
+          "mean": 0.1246006190776825,
+          "has_nan": false,
+          "has_inf": false
+        },
+        "soma77_joints": {
+          "shape": [
+            74,
+            77,
+            3
+          ],
+          "dtype": "float32",
+          "min": -0.8878122568130493,
+          "max": 1.5833299160003662,
+          "mean": 0.09773356467485428,
+          "has_nan": false,
+          "has_inf": false
+        },
+        "soma_poses_rotvec": {
+          "shape": [
+            74,
+            78,
+            3
+          ],
+          "dtype": "float32",
+          "min": -3.139296770095825,
+          "max": 3.138144016265869,
+          "mean": -0.0025645566638559103,
+          "has_nan": false,
+          "has_inf": false
+        },
+        "soma_root_transl": {
+          "shape": [
+            74,
+            3
+          ],
+          "dtype": "float32",
+          "min": -0.6411019563674927,
+          "max": 1.1393461227416992,
+          "mean": 0.21394547820091248,
+          "has_nan": false,
+          "has_inf": false
+        },
+        "soma_mean_error": {
+          "shape": [],
+          "dtype": "float64",
+          "min": 0.005184894893318415,
+          "max": 0.005184894893318415,
+          "mean": 0.005184894893318415,
+          "has_nan": false,
+          "has_inf": false
+        },
+        "joint_names_soma": {
+          "shape": [
+            77
+          ],
+          "dtype": "<U18",
+          "min": null,
+          "max": null,
+          "mean": null,
+          "has_nan": false,
+          "has_inf": false
+        },
+        "parents_soma": {
+          "shape": [
+            77
+          ],
+          "dtype": "int64",
+          "min": null,
+          "max": null,
+          "mean": null,
+          "has_nan": false,
+          "has_inf": false
+        },
+        "dataset": {
+          "shape": [],
+          "dtype": "<U5",
+          "min": null,
+          "max": null,
+          "mean": null,
+          "has_nan": false,
+          "has_inf": false
+        },
+        "seg_id": {
+          "shape": [],
+          "dtype": "<U9",
+          "min": null,
+          "max": null,
+          "mean": null,
+          "has_nan": false,
+          "has_inf": false
+        },
+        "start_frame": {
+          "shape": [],
+          "dtype": "int64",
+          "min": null,
+          "max": null,
+          "mean": null,
+          "has_nan": false,
+          "has_inf": false
+        },
+        "end_frame": {
+          "shape": [],
+          "dtype": "int64",
+          "min": null,
+          "max": null,
+          "mean": null,
+          "has_nan": false,
+          "has_inf": false
+        },
+        "num_frames": {
+          "shape": [],
+          "dtype": "int64",
+          "min": null,
+          "max": null,
+          "mean": null,
+          "has_nan": false,
+          "has_inf": false
+        },
+        "scene_name": {
+          "shape": [],
+          "dtype": "<U3",
+          "min": null,
+          "max": null,
+          "mean": null,
+          "has_nan": false,
+          "has_inf": false
+        },
+        "scene_mesh_path": {
+          "shape": [],
+          "dtype": "<U72",
+          "min": null,
+          "max": null,
+          "mean": null,
+          "has_nan": false,
+          "has_inf": false
+        },
+        "conversion_method": {
+          "shape": [],
+          "dtype": "<U19",
+          "min": null,
+          "max": null,
+          "mean": null,
+          "has_nan": false,
+          "has_inf": false
+        }
+      }
+    },
+    "seg_00004_soma.npz": {
+      "path": "soma_converted_all/lingo/seg_00004_soma.npz",
+      "valid": true,
+      "issues": [
+        "missing motion key group: ['posed_joints', 'soma77_joints', 'smpl22_joints']",
+        "missing motion key group: ['root_positions', 'soma_root_transl']"
+      ],
+      "keys": [
+        "absolute_pose",
+        "identity_coeffs",
+        "identity_model_type",
+        "joint_names",
+        "joint_orient",
+        "keep_root",
+        "poses",
+        "rotation_repr",
+        "transl",
+        "unit"
+      ],
+      "arrays": {
+        "poses": {
+          "shape": [
+            74,
+            77,
+            3
+          ],
+          "dtype": "float32",
+          "min": -3.139296770095825,
+          "max": 3.138144016265869,
+          "mean": -0.0025978623889386654,
+          "has_nan": false,
+          "has_inf": false
+        },
+        "transl": {
+          "shape": [
+            74,
+            3
+          ],
+          "dtype": "float32",
+          "min": -0.6411019563674927,
+          "max": 1.1393461227416992,
+          "mean": 0.21394547820091248,
+          "has_nan": false,
+          "has_inf": false
+        },
+        "joint_names": {
+          "shape": [
+            77
+          ],
+          "dtype": "<U18",
+          "min": null,
+          "max": null,
+          "mean": null,
+          "has_nan": false,
+          "has_inf": false
+        },
+        "identity_model_type": {
+          "shape": [],
+          "dtype": "<U4",
+          "min": null,
+          "max": null,
+          "mean": null,
+          "has_nan": false,
+          "has_inf": false
+        },
+        "identity_coeffs": {
+          "shape": [
+            1,
+            10
+          ],
+          "dtype": "float32",
+          "min": 0.0,
+          "max": 0.0,
+          "mean": 0.0,
+          "has_nan": false,
+          "has_inf": false
+        },
+        "keep_root": {
+          "shape": [],
+          "dtype": "bool",
+          "min": null,
+          "max": null,
+          "mean": null,
+          "has_nan": false,
+          "has_inf": false
+        },
+        "absolute_pose": {
+          "shape": [],
+          "dtype": "bool",
+          "min": null,
+          "max": null,
+          "mean": null,
+          "has_nan": false,
+          "has_inf": false
+        },
+        "rotation_repr": {
+          "shape": [],
+          "dtype": "<U6",
+          "min": null,
+          "max": null,
+          "mean": null,
+          "has_nan": false,
+          "has_inf": false
+        },
+        "unit": {
+          "shape": [],
+          "dtype": "<U6",
+          "min": null,
+          "max": null,
+          "mean": null,
+          "has_nan": false,
+          "has_inf": false
+        },
+        "joint_orient": {
+          "shape": [
+            78,
+            3,
+            3
+          ],
+          "dtype": "float32",
+          "min": -1.0,
+          "max": 1.0,
+          "mean": 0.1436355859041214,
+          "has_nan": false,
+          "has_inf": false
+        }
+      }
+    }
+  },
+  "summary": {
+    "scenes_checked": 5,
+    "scenes_valid": 5,
+    "scene_pass_rate": "5/5",
+    "scene_shape_distribution": {
+      "(300, 100, 400)": 5
+    },
+    "motions_checked": 10,
+    "motions_valid": 10,
+    "motion_pass_rate": "10/10"
+  },
+  "coordinate_ranges": {
+    "checked": false,
+    "reason": "no valid joint data"
+  }
+}

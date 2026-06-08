@@ -1,0 +1,206 @@
+{
+  "summary": {
+    "total": 49,
+    "passed": 30,
+    "failed": 18,
+    "warned": 1
+  },
+  "results": {
+    "1.1 PyTorch CUDA compile": {
+      "status": "PASS",
+      "detail": "PyTorch 2.4.0+cu121, CUDA 12.1"
+    },
+    "1.2 GPU": {
+      "status": "WARN",
+      "detail": "CUDA NOT available \u2014 training will use CPU (slow)"
+    },
+    "1.5 System RAM": {
+      "status": "PASS",
+      "detail": "479.3 GB free / 503.5 GB total"
+    },
+    "1.6 Disk space": {
+      "status": "PASS",
+      "detail": "13509.4 GB free (need >=50 GB for checkpoints)"
+    },
+    "2.1 Model directory": {
+      "status": "FAIL",
+      "detail": "/home/lzsh2025/kimodo-viser/kimodo_scene_project/models/Kimodo-SOMA-RP-v1.1"
+    },
+    "2.2 model.safetensors": {
+      "status": "FAIL",
+      "detail": "MISSING"
+    },
+    "2.3 config.yaml": {
+      "status": "FAIL",
+      "detail": ""
+    },
+    "2.4 stats directory": {
+      "status": "FAIL",
+      "detail": ""
+    },
+    "3.1 Cached data dir": {
+      "status": "FAIL",
+      "detail": "/home/lzsh2025/kimodo-viser/kimodo_scene_project/kimodo/kimodo_sceneco/cached_data"
+    },
+    "3.8 Scene directory": {
+      "status": "FAIL",
+      "detail": "/home/lzsh2025/kimodo-viser/kimodo_scene_project/LINGO/dataset/dataset/Scene"
+    },
+    "3.10 SOMA converted data": {
+      "status": "FAIL",
+      "detail": ""
+    },
+    "3.12 Text encoders dir": {
+      "status": "FAIL",
+      "detail": "text_encoders or .hf_cache"
+    },
+    "4.1 torch": {
+      "status": "PASS",
+      "detail": "import torch OK"
+    },
+    "4.2 numpy": {
+      "status": "PASS",
+      "detail": "import numpy OK"
+    },
+    "4.3 scipy": {
+      "status": "PASS",
+      "detail": "import scipy OK"
+    },
+    "4.4 tqdm": {
+      "status": "PASS",
+      "detail": "import tqdm OK"
+    },
+    "4.5 yaml (pyyaml)": {
+      "status": "PASS",
+      "detail": "import yaml OK"
+    },
+    "4.6 omegaconf": {
+      "status": "PASS",
+      "detail": "import omegaconf OK"
+    },
+    "4.7 hydra": {
+      "status": "PASS",
+      "detail": "import hydra OK"
+    },
+    "4.8 safetensors": {
+      "status": "PASS",
+      "detail": "import safetensors OK"
+    },
+    "4.9 Kimodo model": {
+      "status": "PASS",
+      "detail": "import kimodo.model OK"
+    },
+    "4.10 SOMA": {
+      "status": "PASS",
+      "detail": "import soma OK"
+    },
+    "4.11 Scene encoder": {
+      "status": "FAIL",
+      "detail": "import kimodo.kimodo_sceneco.model.scene_encoder: ModuleNotFoundError: No module named 'kimodo.kimodo_sceneco'"
+    },
+    "4.12 Dataset": {
+      "status": "FAIL",
+      "detail": "import kimodo.kimodo_sceneco.train.dataset: ModuleNotFoundError: No module named 'kimodo.kimodo_sceneco'"
+    },
+    "4.13 Preprocess": {
+      "status": "FAIL",
+      "detail": "import kimodo.kimodo_sceneco.train.preprocess: ModuleNotFoundError: No module named 'kimodo.kimodo_sceneco'"
+    },
+    "5. ENV CHECKPOINT_DIR": {
+      "status": "FAIL",
+      "detail": "actual=models/Kimodo-SOMA-RP-v1.1, expected=/home/lzsh2025/kimodo-viser/kimodo_scene_project/models/Kimodo-SOMA-RP-v1.1"
+    },
+    "5. ENV HF_HOME": {
+      "status": "FAIL",
+      "detail": "actual=.hf_cache, expected=/home/lzsh2025/kimodo-viser/kimodo_scene_project/.hf_cache"
+    },
+    "5. ENV TEXT_ENCODERS_DIR": {
+      "status": "FAIL",
+      "detail": "actual=text_encoders, expected=/home/lzsh2025/kimodo-viser/kimodo_scene_project/text_encoders"
+    },
+    "5. ENV TEXT_ENCODER_MODE": {
+      "status": "PASS",
+      "detail": "actual=local, expected=local"
+    },
+    "5. ENV TEXT_ENCODER_DEVICE": {
+      "status": "PASS",
+      "detail": "actual=cpu, expected=cpu"
+    },
+    "6.sceneco_root_only.yaml exists": {
+      "status": "PASS",
+      "detail": ""
+    },
+    "6.sceneco_root_only.yaml freeze_pretrained": {
+      "status": "PASS",
+      "detail": "True"
+    },
+    "6.sceneco_root_only.yaml lr=1e-4": {
+      "status": "PASS",
+      "detail": "0.0001"
+    },
+    "6.sceneco_root_only.yaml precision=bf16": {
+      "status": "PASS",
+      "detail": "bf16"
+    },
+    "6.sceneco_root_body.yaml exists": {
+      "status": "PASS",
+      "detail": ""
+    },
+    "6.sceneco_root_body.yaml freeze_pretrained": {
+      "status": "PASS",
+      "detail": "True"
+    },
+    "6.sceneco_root_body.yaml lr=1e-4": {
+      "status": "PASS",
+      "detail": "0.0001"
+    },
+    "6.sceneco_root_body.yaml precision=bf16": {
+      "status": "PASS",
+      "detail": "bf16"
+    },
+    "6.eval_scene.yaml exists": {
+      "status": "PASS",
+      "detail": ""
+    },
+    "6.eval_scene.yaml freeze_pretrained": {
+      "status": "FAIL",
+      "detail": "None"
+    },
+    "6.eval_scene.yaml lr=1e-4": {
+      "status": "FAIL",
+      "detail": "None"
+    },
+    "6.eval_scene.yaml precision=bf16": {
+      "status": "FAIL",
+      "detail": "None"
+    },
+    "7.1 gate alpha = 0.0": {
+      "status": "PASS",
+      "detail": "alpha = 0.0000000000"
+    },
+    "7.2 sceneco_layers alpha = 0.0": {
+      "status": "PASS",
+      "detail": "alpha = 0.0000000000"
+    },
+    "8.1 VoxelViT forward": {
+      "status": "PASS",
+      "detail": "output shape: [2, 512, 256], mask: [2, 512]"
+    },
+    "8.2 SceneCoLayer forward": {
+      "status": "PASS",
+      "detail": "output shape: [2, 128, 512], alpha=0.000000"
+    },
+    "8.3 alpha unchanged after forward": {
+      "status": "PASS",
+      "detail": "alpha after fwd: 0.0000000000"
+    },
+    "8.4 output \u2248 input (gate=0)": {
+      "status": "PASS",
+      "detail": "max diff: 0.000000"
+    },
+    "9.1 Model loading": {
+      "status": "FAIL",
+      "detail": "LocalEntryNotFoundError: Got: ConnectTimeout: [Errno 110] Connection timed out\nAn error happened while trying to locate the files on the Hub and we cannot find the appropriate snapshot folder for the specified revision on the local disk. Please check your internet connection and try again."
+    }
+  }
+}

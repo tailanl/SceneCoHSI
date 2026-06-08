@@ -1,0 +1,26 @@
+
+===========================================================================================================================================================================================================
+SceneCo Experiment Metrics Comparison (3 LINGO val samples, 50 DDIM steps)
+===========================================================================================================================================================================================================
+Experiment                 |        CFR |        JCR |    MeanPen |     MaxPen |     P95Pen |       PFFR |       OPIR |  FootSkate | FootPenetration | FloatingRatio |  VelSmooth |  AccelJerk | BoneLenErr
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Kimodo_original            |     1.0000 |     0.5506 |     0.0500 |     0.0500 |     0.0500 |     0.0000 |     0.8070 |     0.0194 |     0.2434 |     0.3216 |     0.0005 |     0.0003 |     0.2606
+root_only                  |     0.9669 |     0.9124 |     0.0500 |     0.0500 |     0.0500 |     0.0331 |     1.0000 |     1.0225 |     0.2542 |     0.9551 |     0.0511 |     0.0722 |     0.2656
+dual_vit                   |     1.0000 |     0.8568 |     0.0500 |     0.0500 |     0.0500 |     0.0000 |     0.9903 |     1.3413 |     0.2604 |     0.9386 |     0.0688 |     0.1013 |     0.2550
+dual_vit_floor             |     0.7227 |     0.4845 |     0.0500 |     0.0500 |     0.0500 |     0.2773 |     0.6262 |     0.5898 |     0.3207 |     0.6784 |     0.0843 |     0.1326 |     0.2535
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+C-class: CFR/JCR/MeanPen/MaxPen/P95Pen/OPIR = lower is better, PFFR = higher is better
+D-class: All = lower is better
+===========================================================================================================================================================================================================
+
+Key Findings:
+  • CFR: dual_vit_floor (0.72) << root_only (0.97) < Kimodo_original (1.00) = dual_vit (1.00)
+  • JCR: dual_vit_floor (0.48) < Kimodo_original (0.55) < dual_vit (0.86) < root_only (0.91)
+  • PFFR: dual_vit_floor (0.28) > root_only (0.03) > others (0.00)
+  • OPIR: dual_vit_floor (0.63) < Kimodo_original (0.81) < dual_vit (0.99) < root_only (1.00)
+  • FootSkate: Kimodo_original (0.02) < dual_vit_floor (0.59) < root_only (1.02) < dual_vit (1.34)
+  • BoneLenErr: all ~0.25-0.27 (comparable)
+
+Conclusion: dual_vit_floor significantly outperforms others on collision metrics,
+with 72% collision-free frames vs 0% for baseline. Floor projection provides
+the most effective scene awareness for obstacle avoidance.

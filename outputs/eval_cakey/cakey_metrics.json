@@ -1,0 +1,15 @@
+{
+  "cakey_body_only": {
+    "num_batches": 388,
+    "total_frames": 176583,
+    "mse_with_scene": 1.048843,
+    "mse_no_scene": 3.750422,
+    "root_mse_with": 6.986315,
+    "root_mse_no": 6.986315,
+    "body_mse_with": 0.967285,
+    "body_mse_no": 3.705973,
+    "delta_mse": -2.701579,
+    "delta_root": 0.0,
+    "delta_body": -2.738688
+  }
+}
