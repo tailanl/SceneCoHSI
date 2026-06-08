@@ -94,7 +94,7 @@ def main():
     parser = argparse.ArgumentParser(description="Body generation from fixed root")
     parser.add_argument("--root_dir", type=str, required=True)
     parser.add_argument("--output_dir", type=str, required=True)
-    parser.add_argument("--model_ckpt", type=str, default="models/Kimodo-SMPLX-RP-v1")
+    parser.add_argument("--model_ckpt", type=str, default="kimodo-smplx-rp")
     parser.add_argument("--num_denoising_steps", type=int, default=50)
     parser.add_argument("--cfg_weight", type=float, nargs="+", default=[2.0, 2.0])
     parser.add_argument("--fix_root_each_step", action="store_true", default=True)
