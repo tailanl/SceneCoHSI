@@ -1,0 +1,50 @@
+# Stage 1: CaKey Root-Only Configuration
+# Train CaKey layers only in root_model (body_model unchanged).
+# Freeze all Kimodo parameters, randomly sample keyframes.
+
+pretrained_model: "Kimodo-SOMA-RP-v1.1"
+checkpoint_dir: "models/Kimodo-SOMA-RP-v1.1"
+output_dir: "kimodo_scene_project/outputs/cakey_root_only"
+
+data:
+  data_root: "LINGO/dataset"
+  cache_dir: "kimodo/kimodo_sceneco/cached_data"
+  voxel_size: [64, 64, 64]
+  max_frames: 196
+  min_frames: 40
+  fps: 30
+  train_ratio: 0.9
+
+cakey:
+  use_cakey_root: true
+  use_cakey_body: false
+  hidden_dim: 2048
+
+keyframe_sampling:
+  always_first_frame: true
+  always_last_frame: true
+  stride_choices: [20, 30, 40]
+  random_drop_middle_keyframes: 0.1
+
+training:
+  precision: bf16
+  freeze_pretrained: true
+  num_base_steps: 1000
+  batch_size: 16
+  total_steps: 200000
+  warmup_steps: 5000
+  lr: 1.0e-4
+  weight_decay: 0.01
+  max_grad_norm: 1.0
+  accum_steps: 1
+  device: "cuda"
+  seed: 42
+  log_interval: 50
+  val_interval: 500
+  val_max_batches: 10
+  num_workers: 4
+
+experiment:
+  name: "cakey_root_only"
+  gpu_ids: [2]
+  description: "Stage 1: CaKey in root_model only, keyframe-based inbetweening training"

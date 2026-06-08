@@ -1,0 +1,40 @@
+# Data & caches
+outputs/
+LINGO/
+lingo_smplx_cache/
+lingo_root_trajectory_smplx/
+logs/
+viz_output/
+
+# Model weights
+models/
+text_encoders/
+kimodo_sceneco/cached_data/
+kimodo_sceneco/cached_data_truman/
+kimodo_sceneco/assets/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+
+# Binary files
+*.npz
+*.pt
+*.safetensors
+*.bin
+*.pkl
+*.h5
+*.npy
+
+# Logs
+*.log
+
+# Misc
+.DS_Store
+*.swp
+*.swo
+*~

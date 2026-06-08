@@ -1,0 +1,66 @@
+experiment:
+  name: stage2_root_guided_sceneco
+  description: Train SceneCo body-only with external guided root for Stage2.
+
+model:
+  pretrained_model: models/Kimodo-SMPLX-RP-v1
+  baseline_model: null
+
+data:
+  data_root: LINGO/dataset
+  cache_dir: lingo_smplx_cache
+  scene_dir: LINGO/dataset/dataset/Scene
+  max_frames: 196
+  min_frames: 40
+  train_ratio: 0.9
+  voxel_size: [64, 64, 64]
+  fps: 30
+
+external_root:
+  enabled: true
+  use_external_root: true
+  fix_root_each_step: true
+  use_initial_pose: false
+  root_format: normalized_5d
+  path_guided_root_dir: outputs/guided_roots_train/path_only
+  path_scene_guided_root_dir: outputs/guided_roots_train/path_scene
+  val_root_dir: outputs/guided_roots_val/path_scene
+
+root_condition_mix:
+  gt_root: 0.3
+  path_guided_root: 0.3
+  path_scene_guided_root: 0.4
+
+sceneco:
+  enabled: true
+  use_in_root_model: false
+  use_in_body_model: true
+  sceneco_dropout: 0.1
+  use_dual_vit: false
+  root_voxel_mode: full
+
+trajco:
+  enabled: false
+  use_trajco: false
+  use_trajco_root: false
+  use_trajco_body: false
+
+training:
+  batch_size: 4
+  accum_steps: 1
+  num_epochs: 400
+  lr: 1.0e-4
+  weight_decay: 0.01
+  max_grad_norm: 1.0
+  prior_weight: 0.0
+  scene_dropout: 0.1
+  num_workers: 4
+  device: cuda
+
+loss:
+  body_mse: 1.0
+  body_velocity: 0.1
+  foot_slide: 0.05
+  scene_collision: 0.0
+  root_loss: 0.0
+  body_only_loss: true
