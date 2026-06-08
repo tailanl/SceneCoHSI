@@ -206,7 +206,7 @@ def train(args):
     )
 
     # ---- loop ----
-    best_val_acc = 0.0
+    best_val_acc = -1.0
     history = []
 
     for epoch in range(1, args.num_epochs + 1):
