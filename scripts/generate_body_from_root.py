@@ -22,13 +22,13 @@ import logging
 import sys
 from pathlib import Path
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
-sys.path.insert(0, str(PROJECT_ROOT))
-sys.path.insert(0, str(PROJECT_ROOT / "kimodo"))
+PROJECT_DIR = Path(__file__).resolve().parent.parent  # kimodo_scene_project/
+sys.path.insert(0, str(PROJECT_DIR))  # our code FIRST (overrides kimodo/kimodo_sceneco)
+sys.path.insert(1, str(PROJECT_DIR.parent / "kimodo"))  # kimodo/ SECOND
 
 import os
 
-os.environ["CHECKPOINT_DIR"] = str(PROJECT_ROOT / "kimodo_scene_project/models")
+os.environ["CHECKPOINT_DIR"] = str(PROJECT_DIR / "models")
 
 import numpy as np
 import torch
