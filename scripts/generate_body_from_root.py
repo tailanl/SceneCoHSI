@@ -50,8 +50,9 @@ def load_kimodo_sceneco(model_ckpt, device):
         KimodoSceneCo wrapper with patched denoiser forward (external_root/use_external_root).
     """
     log.info(f"Loading base Kimodo from {model_ckpt}...")
-    base_model = load_model(model_ckpt, device=device)
+    base_model = load_model(model_ckpt, device="cpu")
     base_model.eval()
+    base_model = base_model.to(device)
 
     scene_encoder_config = {
         "d_model": 256,
