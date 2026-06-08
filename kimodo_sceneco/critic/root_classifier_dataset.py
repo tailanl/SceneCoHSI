@@ -17,6 +17,14 @@ from torch.utils.data import Dataset
 
 
 MOTION_KEYS = ("motion_features", "motion", "beta_motion", "data")
+NEGATIVE_MODES = (
+    "shift",
+    "wrong_goal",
+    "jitter",
+    "wrong_heading",
+    "reverse_heading",
+    "path_shuffle",
+)
 
 
 def find_cache_files(cache_dir: str | Path, split: str | None = None) -> list[Path]:
@@ -26,13 +34,14 @@ def find_cache_files(cache_dir: str | Path, split: str | None = None) -> list[Pa
         candidates.insert(0, cache_dir / split)
     candidates.extend([cache_dir / "train", cache_dir / "val"])
 
-    files: list[Path] = []
+    npz_files: list[Path] = []
+    pt_files: list[Path] = []
     for candidate in candidates:
         if candidate.exists():
-            files.extend(sorted(candidate.glob("*.npz")))
-            files.extend(sorted(candidate.glob("*.pt")))
+            npz_files.extend(sorted(candidate.glob("*.npz")))
+            pt_files.extend(sorted(candidate.glob("*.pt")))
 
-    files = sorted(set(files))
+    files = sorted(set(npz_files)) + sorted(set(pt_files))
     if not files:
         raise FileNotFoundError(f"No .npz or .pt cache files found in {cache_dir}")
 
@@ -50,21 +59,24 @@ def find_cache_files(cache_dir: str | Path, split: str | None = None) -> list[Pa
 def load_motion_features(path: str | Path) -> np.ndarray:
     path = Path(path)
     if path.suffix == ".npz":
-        data = np.load(path, allow_pickle=True)
-        for key in MOTION_KEYS:
-            if key in data:
-                return np.asarray(data[key], dtype=np.float32)
-        raise KeyError(f"No motion_features/motion entry in {path}; keys={list(data.keys())}")
+        with np.load(path, allow_pickle=True) as data:
+            for key in MOTION_KEYS:
+                if key in data:
+                    return np.asarray(data[key], dtype=np.float32)
+            raise KeyError(f"No motion feature entry in {path}; keys={list(data.keys())}")
 
     if path.suffix == ".pt":
         data = torch.load(path, map_location="cpu", weights_only=False)
+        if isinstance(data, torch.Tensor):
+            return data.detach().cpu().numpy().astype(np.float32)
         for key in MOTION_KEYS:
             if key in data:
                 value = data[key]
                 if isinstance(value, torch.Tensor):
                     value = value.detach().cpu().numpy()
                 return np.asarray(value, dtype=np.float32)
-        raise KeyError(f"No motion_features/motion entry in {path}; keys={list(data.keys())}")
+        keys = list(data.keys()) if isinstance(data, dict) else []
+        raise KeyError(f"No motion feature entry in {path}; keys={keys}")
 
     raise ValueError(f"Unsupported cache file: {path}")
 
@@ -73,6 +85,43 @@ def _to_numpy(value) -> np.ndarray:
     if isinstance(value, torch.Tensor):
         value = value.detach().cpu().numpy()
     return np.asarray(value)
+
+
+def _available_keys(value) -> list[str]:
+    if isinstance(value, dict):
+        return sorted(str(key) for key in value.keys())
+    return [f"<non-dict output: {type(value).__name__}>"]
+
+
+def _inverse_motion(motion_rep, unnormalized: torch.Tensor):
+    inverse_calls = (
+        {
+            "is_normalized": False,
+            "posed_joints_from": "positions",
+            "return_numpy": True,
+        },
+        {"is_normalized": False, "return_numpy": True},
+        {"is_normalized": False},
+    )
+    last_error: TypeError | None = None
+    for kwargs in inverse_calls:
+        try:
+            return motion_rep.inverse(unnormalized, **kwargs)
+        except TypeError as exc:
+            last_error = exc
+    raise TypeError(
+        "motion_rep.inverse could not be called with unnormalized features; "
+        f"last TypeError: {last_error}"
+    )
+
+
+def _heading_to_cos_sin(heading: np.ndarray) -> np.ndarray:
+    if heading.shape[-1] == 2:
+        return heading
+    if heading.shape[-1] == 1:
+        angle = heading[..., 0]
+        return np.stack([np.cos(angle), np.sin(angle)], axis=-1)
+    raise ValueError(f"Expected heading with last dim 1 or 2, got shape {heading.shape}")
 
 
 def extract_root_5d_meter(motion_rep, features_np: np.ndarray, device: str | torch.device = "cpu") -> np.ndarray:
@@ -91,51 +140,64 @@ def extract_root_5d_meter(motion_rep, features_np: np.ndarray, device: str | tor
     feat = torch.from_numpy(np.asarray(features_np, dtype=np.float32)).float().unsqueeze(0).to(device)
 
     with torch.no_grad():
-        try:
-            unnorm = motion_rep.unnormalize(feat)
-            out = motion_rep.inverse(
-                unnorm,
-                is_normalized=False,
-                posed_joints_from="positions",
-                return_numpy=True,
-            )
-        except TypeError:
-            out = motion_rep.inverse(feat, is_normalized=True, return_numpy=True)
+        unnorm = motion_rep.unnormalize(feat)
+        out = _inverse_motion(motion_rep, unnorm)
+
+    if not isinstance(out, dict):
+        raise KeyError(
+            "motion_rep.inverse output must be a dict containing 'smooth_root_pos' "
+            "and heading keys. "
+            f"Available keys: {_available_keys(out)}"
+        )
 
     if "smooth_root_pos" in out:
         smooth_root_pos = _to_numpy(out["smooth_root_pos"])[0]
-    elif "root_positions" in out:
-        smooth_root_pos = _to_numpy(out["root_positions"])[0]
     else:
-        raise KeyError("Cannot find smooth_root_pos/root_positions in motion_rep.inverse output")
+        raise KeyError(
+            "motion_rep.inverse output is missing 'smooth_root_pos'. "
+            f"Available keys: {_available_keys(out)}"
+        )
 
     if "global_root_heading" in out:
         heading = _to_numpy(out["global_root_heading"])[0]
     elif "root_heading" in out:
         heading = _to_numpy(out["root_heading"])[0]
     else:
-        raise KeyError("Cannot find global_root_heading/root_heading in motion_rep.inverse output")
+        raise KeyError(
+            "motion_rep.inverse output is missing 'global_root_heading' or 'root_heading'. "
+            f"Available keys: {_available_keys(out)}"
+        )
 
-    return np.concatenate([smooth_root_pos, heading], axis=-1).astype(np.float32)
+    heading_cos_sin = _heading_to_cos_sin(heading)
+    return np.concatenate([smooth_root_pos, heading_cos_sin], axis=-1).astype(np.float32)
 
 
-def make_negative_root_numpy(root_5d: np.ndarray, mode: str) -> np.ndarray:
+def make_negative_root_numpy(
+    root_5d: np.ndarray,
+    mode: str,
+    shift_scale: float = 0.8,
+    wrong_goal_scale: float = 1.2,
+    jitter_scale: float = 0.15,
+) -> np.ndarray:
     root = root_5d.copy()
     T = root.shape[0]
 
     if mode == "shift":
-        root[:, [0, 2]] += np.random.randn(1, 2).astype(np.float32) * 0.8
+        root[:, [0, 2]] += np.random.randn(1, 2).astype(np.float32) * shift_scale
     elif mode == "wrong_goal":
         drift = np.linspace(0.0, 1.0, T, dtype=np.float32)[:, None]
-        root[:, [0, 2]] += drift * (np.random.randn(1, 2).astype(np.float32) * 1.2)
+        root[:, [0, 2]] += drift * (np.random.randn(1, 2).astype(np.float32) * wrong_goal_scale)
     elif mode == "jitter":
-        root[:, [0, 2]] += np.random.randn(T, 2).astype(np.float32) * 0.15
+        root[:, [0, 2]] += np.random.randn(T, 2).astype(np.float32) * jitter_scale
     elif mode == "wrong_heading":
         theta = np.random.rand(T).astype(np.float32) * 2.0 * np.pi
         root[:, 3] = np.cos(theta)
         root[:, 4] = np.sin(theta)
     elif mode == "reverse_heading":
         root[:, 3:5] *= -1.0
+    elif mode == "path_shuffle":
+        order = np.random.permutation(T)
+        root[:, [0, 2]] = root[order][:, [0, 2]]
     else:
         raise ValueError(f"Unknown negative mode: {mode}")
 
@@ -171,9 +233,11 @@ class RootClassifierDataset(Dataset):
         self.positive_ratio = positive_ratio
         self.max_frames = max_frames
         self.negative_modes = list(
-            negative_modes
-            or ["shift", "wrong_goal", "jitter", "wrong_heading", "reverse_heading", "path_shuffle"]
+            negative_modes or NEGATIVE_MODES
         )
+        unknown_modes = sorted(set(self.negative_modes) - set(NEGATIVE_MODES))
+        if unknown_modes:
+            raise ValueError(f"Unknown negative mode(s): {unknown_modes}; valid modes={list(NEGATIVE_MODES)}")
         self.use_scene_sdf = use_scene_sdf
         self.scene_dir = Path(scene_dir) if scene_dir else None
 
@@ -231,3 +295,6 @@ def collate_root_classifier(batch: list[dict]) -> dict:
         "negative_mode": [item["negative_mode"] for item in batch],
         "source_file": [item["source_file"] for item in batch],
     }
+
+
+root_classifier_collate_fn = collate_root_classifier

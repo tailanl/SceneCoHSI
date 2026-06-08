@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import argparse
+import csv
 import json
 import logging
 import os
 import sys
+import types
 from pathlib import Path
 
 import numpy as np
@@ -91,7 +93,7 @@ def load_classifier(ckpt_path: str, cfg: dict, device: torch.device) -> RootPath
     ckpt = torch.load(ckpt_path, map_location=device, weights_only=False)
     classifier_cfg = cfg.get("root_classifier", {})
     model = RootPathSceneClassifier(
-        input_dim=ckpt.get("input_dim", classifier_cfg.get("input_dim", 19)),
+        input_dim=ckpt.get("input_dim", classifier_cfg.get("input_dim", 20)),
         hidden_dim=ckpt.get("hidden_dim", classifier_cfg.get("hidden_dim", 256)),
         num_layers=ckpt.get("num_layers", classifier_cfg.get("num_layers", 4)),
         num_heads=ckpt.get("num_heads", classifier_cfg.get("num_heads", 4)),
@@ -110,19 +112,28 @@ def find_cache_files(cache_dir: str | None) -> list[Path]:
         candidates.append(Path(cache_dir))
     candidates.extend(
         [
+            PROJECT_DIR / "lingo_smplx_cache",
             PROJECT_DIR / "LINGO/dataset/dataset/lingo_smplx_cache",
             REPO_ROOT / "LINGO/dataset/dataset/lingo_smplx_cache",
             REPO_ROOT / "lingo_smplx_cache",
         ]
     )
-    files: list[Path] = []
     for candidate in candidates:
+        npz_files: list[Path] = []
+        pt_files: list[Path] = []
         if candidate.exists():
             for subdir in [candidate, candidate / "train", candidate / "val"]:
                 if subdir.exists():
-                    files.extend(sorted(subdir.glob("*.npz")))
-                    files.extend(sorted(subdir.glob("*.pt")))
-    return sorted(set(files))
+                    npz_files.extend(
+                        path for path in sorted(subdir.glob("*.npz")) if ".tmp" not in path.name
+                    )
+                    pt_files.extend(
+                        path for path in sorted(subdir.glob("*.pt")) if ".tmp" not in path.name
+                    )
+        files = sorted(set(npz_files)) + sorted(set(pt_files))
+        if files:
+            return files
+    return []
 
 
 def load_cache_data(path: Path) -> dict:
@@ -149,6 +160,15 @@ def get_text(data: dict, fallback: str = "") -> str:
         if value is not None:
             return str(value)
     return fallback
+
+
+def get_scene_name(data: dict) -> str:
+    value = data.get("scene_name", "")
+    if isinstance(value, torch.Tensor):
+        value = value.detach().cpu().item() if value.numel() == 1 else value.detach().cpu().tolist()
+    if isinstance(value, np.ndarray):
+        value = value.item() if value.shape == () else value.tolist()
+    return str(value)
 
 
 def make_root_guidance_cfg(cfg: dict, enabled: bool) -> RootGuidanceConfig:
@@ -185,6 +205,69 @@ def root_5d_from_output(output: dict) -> np.ndarray:
     if heading.ndim == 3:
         heading = heading[0]
     return np.concatenate([pos, heading], axis=-1)
+
+
+def root_5d_norm_from_output(output: dict, model: KimodoSceneCo, length: int) -> np.ndarray:
+    local_rot_mats = output["local_rot_mats"]
+    root_positions = output["root_positions"]
+    if not isinstance(local_rot_mats, torch.Tensor):
+        local_rot_mats = torch.from_numpy(local_rot_mats).to(model.device)
+    if not isinstance(root_positions, torch.Tensor):
+        root_positions = torch.from_numpy(root_positions).to(model.device)
+    if local_rot_mats.dim() == 4:
+        local_rot_mats = local_rot_mats.unsqueeze(0)
+    if root_positions.dim() == 2:
+        root_positions = root_positions.unsqueeze(0)
+    lengths = torch.tensor([length], device=local_rot_mats.device)
+    features_norm = model.motion_rep(
+        local_rot_mats,
+        root_positions,
+        to_normalize=True,
+        lengths=lengths,
+    )
+    root_norm = features_norm[..., model.motion_rep.root_slice]
+    return root_norm[0].detach().cpu().numpy().astype(np.float32)
+
+
+def install_guidance_logger(model: KimodoSceneCo, rows: list[dict], sample_id_fn):
+    original = model.denoising_step_with_root_classifier_guidance
+
+    def wrapped(self, *args, **kwargs):
+        t = kwargs.get("t")
+        if t is None and len(args) >= 5:
+            t = args[4]
+        x_tm1, logs = original(*args, **kwargs)
+        step = int(t[0].detach().cpu().item()) if isinstance(t, torch.Tensor) else -1
+        row = {
+            "sample_id": sample_id_fn(),
+            "step": step,
+            "loss_cls": logs.get("loss_cls", ""),
+            "score_valid": logs.get("score_valid", ""),
+            "loss_total": logs.get("loss_total", ""),
+            "grad_norm": logs.get("grad_norm", ""),
+        }
+        rows.append(row)
+        log.info(
+            "sample_id=%s step=%s loss_cls=%s score_valid=%s loss_total=%s grad_norm=%s",
+            row["sample_id"],
+            row["step"],
+            row["loss_cls"],
+            row["score_valid"],
+            row["loss_total"],
+            row["grad_norm"],
+        )
+        return x_tm1, logs
+
+    model.denoising_step_with_root_classifier_guidance = types.MethodType(wrapped, model)
+
+
+def write_guidance_log(path: Path, rows: list[dict]) -> None:
+    fieldnames = ["sample_id", "step", "loss_cls", "score_valid", "loss_total", "grad_norm"]
+    with path.open("w", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        writer.writeheader()
+        for row in rows:
+            writer.writerow(row)
 
 
 def main() -> None:
@@ -248,8 +331,12 @@ def main() -> None:
 
     root_guidance_cfg = make_root_guidance_cfg(cfg, enabled=hybrid_enabled)
     metadata = []
+    guidance_rows: list[dict] = []
+    current_sample_id = {"value": -1}
+    install_guidance_logger(model, guidance_rows, lambda: current_sample_id["value"])
 
     for sample_idx, cache_file in enumerate(cache_files[: args.num_samples]):
+        current_sample_id["value"] = sample_idx
         data = load_cache_data(cache_file)
         motion = get_motion_tensor(data, cache_file)
         T = min(int(motion.shape[0]), gen_cfg.get("num_frames", 196))
@@ -257,7 +344,7 @@ def main() -> None:
             continue
 
         motion_features = load_motion_features(cache_file)
-        root_5d_meter = extract_root_5d_meter(model.motion_rep, motion_features)[:T]
+        root_5d_meter = extract_root_5d_meter(model.motion_rep, motion_features, device=device)[:T]
         target_path_xz = torch.from_numpy(root_5d_meter[:, [0, 2]]).float().unsqueeze(0).to(device)
         text = get_text(data, fallback="")
 
@@ -280,15 +367,28 @@ def main() -> None:
             return_numpy=False,
         )
 
-        guided_root_5d = root_5d_from_output(output)
-        out_file = output_dir / f"{cache_file.stem}_{sample_idx:04d}.npy"
-        np.save(out_file, guided_root_5d)
+        guided_root_5d_meter = root_5d_from_output(output)[:T].astype(np.float32)
+        guided_root_5d_norm = root_5d_norm_from_output(output, model, T)[:T]
+        target_path_np = target_path_xz[0].detach().cpu().numpy().astype(np.float32)
+        scene_name = get_scene_name(data)
+
+        out_file = output_dir / f"{cache_file.stem}_{sample_idx:04d}.npz"
+        np.savez(
+            out_file,
+            guided_root_5d_norm=guided_root_5d_norm,
+            guided_root_5d_meter=guided_root_5d_meter,
+            target_path_xz=target_path_np,
+            text=np.asarray(text),
+            scene_name=np.asarray(scene_name),
+            source_file=np.asarray(str(cache_file)),
+        )
 
         metadata.append(
             {
                 "file": str(out_file),
                 "source_cache": str(cache_file),
                 "text": text,
+                "scene_name": scene_name,
                 "num_frames": int(T),
                 "hybrid": bool(hybrid_enabled),
                 "classifier_guidance_scale": float(guidance_scale),
@@ -300,6 +400,7 @@ def main() -> None:
 
     with (output_dir / "metadata.json").open("w") as f:
         json.dump(metadata, f, indent=2)
+    write_guidance_log(output_dir / "guidance_log.csv", guidance_rows)
     log.info("Done. Saved %d guided roots to %s", len(metadata), output_dir)
 
 

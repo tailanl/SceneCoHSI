@@ -7,12 +7,16 @@ Usage:
     --batch_size 64 --num_epochs 100 --lr 1e-4 --gpu 0
 """
 
-import os, sys, logging, argparse, json
+import argparse
+import csv
+import json
+import logging
+import os
+import sys
 from pathlib import Path
 from typing import Optional
 
 import torch
-import torch.nn.functional as F
 from torch.utils.data import DataLoader
 
 
@@ -81,9 +85,43 @@ def per_negative_mode_accuracy(logits, labels, neg_modes):
     return {k: v["correct"] / max(v["count"], 1) for k, v in stats.items()}
 
 
-def evaluate(model, loader, device, max_batches: Optional[int] = None):
+def compute_auc(probs, labels):
+    """Compute ROC AUC with sklearn when available; skip cleanly otherwise."""
+    try:
+        from sklearn.metrics import roc_auc_score
+    except ImportError:
+        return None
+
+    try:
+        return float(roc_auc_score(labels.numpy(), probs.numpy()))
+    except ValueError:
+        return None
+
+
+def metrics_from_logits(logits, labels, neg_modes, loss_value):
+    probs = torch.sigmoid(logits)
+    preds = (probs > 0.5).float()
+    acc = (preds == labels.float()).float().mean().item()
+
+    pos_mask = labels == 1
+    neg_mask = labels == 0
+    pos_score = probs[pos_mask].mean().item() if pos_mask.any() else 0.0
+    neg_score = probs[neg_mask].mean().item() if neg_mask.any() else 0.0
+
+    return {
+        "loss": loss_value,
+        "acc": acc,
+        "positive_score_mean": pos_score,
+        "negative_score_mean": neg_score,
+        "auc": compute_auc(probs, labels),
+        "per_mode_acc": per_negative_mode_accuracy(logits, labels, neg_modes),
+    }
+
+
+def evaluate(model, loader, device, criterion, max_batches: Optional[int] = None):
     model.eval()
     all_logits, all_labels, all_neg_modes = [], [], []
+    total_loss, total_count = 0.0, 0
 
     with torch.no_grad():
         for batch_idx, batch in enumerate(loader):
@@ -96,53 +134,68 @@ def evaluate(model, loader, device, max_batches: Optional[int] = None):
 
             frame_feat = build_root_classifier_features(root_5d, target_path_xz)
             logit = model(frame_feat, pad_mask=pad_mask).squeeze(-1)
+            loss = criterion(logit, label.float())
 
             all_logits.append(logit.cpu())
             all_labels.append(label.cpu())
             all_neg_modes.extend(batch["negative_mode"])
+            total_loss += loss.item() * label.numel()
+            total_count += label.numel()
+
+    if not all_logits:
+        raise RuntimeError("Evaluation produced no batches; check dataset and max_val_batches.")
 
     logits = torch.cat(all_logits)
-    labels = torch.cat(all_labels)
-    probs = torch.sigmoid(logits)
-    preds = (probs > 0.5).long()
-
-    loss = F.binary_cross_entropy_with_logits(logits, labels.float()).item()
-    acc = (preds == labels).float().mean().item()
-
-    pos_mask = labels == 1
-    neg_mask = labels == 0
-    pos_score = probs[pos_mask].mean().item() if pos_mask.any() else 0.0
-    neg_score = probs[neg_mask].mean().item() if neg_mask.any() else 0.0
-
-    per_mode = per_negative_mode_accuracy(logits, labels, all_neg_modes)
-    auc = binary_auc(probs, labels)
-
-    return {
-        "loss": loss,
-        "acc": acc,
-        "pos_score": pos_score,
-        "neg_score": neg_score,
-        "auc": auc,
-        "per_mode_acc": per_mode,
-    }
+    labels = torch.cat(all_labels).float()
+    mean_loss = total_loss / max(total_count, 1)
+    return metrics_from_logits(logits, labels, all_neg_modes, mean_loss)
 
 
-def binary_auc(probs, labels):
-    """Compute ROC AUC from ranks without requiring sklearn."""
-    labels = labels.long()
-    pos = labels == 1
-    neg = labels == 0
-    n_pos = int(pos.sum().item())
-    n_neg = int(neg.sum().item())
-    if n_pos == 0 or n_neg == 0:
-        return float("nan")
+def format_auc(auc):
+    return "skipped" if auc is None else f"{auc:.4f}"
 
-    order = torch.argsort(probs)
-    ranks = torch.empty_like(probs, dtype=torch.float)
-    ranks[order] = torch.arange(1, probs.numel() + 1, dtype=torch.float)
-    pos_rank_sum = ranks[pos].sum()
-    auc = (pos_rank_sum - n_pos * (n_pos + 1) / 2.0) / (n_pos * n_neg)
-    return float(auc.item())
+
+def format_per_mode(per_mode):
+    return ", ".join(f"{mode}:{acc:.4f}" for mode, acc in sorted(per_mode.items()))
+
+
+def write_train_log_csv(path: Path, history):
+    fieldnames = [
+        "epoch",
+        "train_loss",
+        "train_acc",
+        "val_loss",
+        "val_acc",
+        "positive_score_mean",
+        "negative_score_mean",
+        "auc",
+    ]
+    with open(path, "w", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        writer.writeheader()
+        for row in history:
+            writer.writerow({key: row.get(key, "") for key in fieldnames})
+
+
+def apply_smoke_defaults(args, cli_flags):
+    output_name = Path(args.output_dir).name.lower()
+    if "smoke" not in output_name:
+        return
+
+    if args.max_train_batches is None and "max_train_batches" not in cli_flags:
+        args.max_train_batches = 2
+    if args.max_val_batches is None and "max_val_batches" not in cli_flags:
+        args.max_val_batches = 2
+    if "num_workers" not in cli_flags:
+        args.num_workers = 0
+
+    log.info(
+        "Smoke output_dir detected; using max_train_batches=%s, "
+        "max_val_batches=%s, num_workers=%s. Pass these flags explicitly to override.",
+        args.max_train_batches,
+        args.max_val_batches,
+        args.num_workers,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -201,6 +254,7 @@ def train(args):
     optimizer = torch.optim.AdamW(
         model.parameters(), lr=args.lr, weight_decay=args.weight_decay,
     )
+    criterion = torch.nn.BCEWithLogitsLoss()
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
         optimizer, T_max=args.num_epochs,
     )
@@ -212,6 +266,7 @@ def train(args):
     for epoch in range(1, args.num_epochs + 1):
         model.train()
         total_loss, total_correct, total_count = 0.0, 0, 0
+        train_logits, train_labels, train_neg_modes = [], [], []
 
         for batch_idx, batch in enumerate(train_loader):
             if args.max_train_batches is not None and batch_idx >= args.max_train_batches:
@@ -227,7 +282,7 @@ def train(args):
             )
 
             logit = model(frame_feat, pad_mask=pad_mask).squeeze(-1)
-            loss = F.binary_cross_entropy_with_logits(logit, label)
+            loss = criterion(logit, label)
 
             optimizer.zero_grad()
             loss.backward()
@@ -241,24 +296,59 @@ def train(args):
             total_loss += loss.item() * label.numel()
             total_correct += correct
             total_count += label.numel()
+            train_logits.append(logit.detach().cpu())
+            train_labels.append(label.detach().cpu())
+            train_neg_modes.extend(batch["negative_mode"])
+
+        if not train_logits:
+            raise RuntimeError("Training produced no batches; check dataset and max_train_batches.")
 
         scheduler.step()
         train_loss = total_loss / max(total_count, 1)
         train_acc = total_correct / max(total_count, 1)
+        train_metrics = metrics_from_logits(
+            torch.cat(train_logits),
+            torch.cat(train_labels).float(),
+            train_neg_modes,
+            train_loss,
+        )
 
         # validation
-        val_metrics = evaluate(model, val_loader, device, max_batches=args.max_val_batches)
+        val_metrics = evaluate(
+            model,
+            val_loader,
+            device,
+            criterion,
+            max_batches=args.max_val_batches,
+        )
 
         log.info(
             f"[Epoch {epoch:3d}/{args.num_epochs}] "
             f"train_loss={train_loss:.4f} train_acc={train_acc:.4f} "
             f"val_loss={val_metrics['loss']:.4f} val_acc={val_metrics['acc']:.4f} "
-            f"auc={val_metrics['auc']:.4f} "
-            f"pos={val_metrics['pos_score']:.4f} neg={val_metrics['neg_score']:.4f}"
+            f"positive_score_mean={val_metrics['positive_score_mean']:.4f} "
+            f"negative_score_mean={val_metrics['negative_score_mean']:.4f} "
+            f"AUC={format_auc(val_metrics['auc'])}"
+        )
+        log.info(
+            f"[Epoch {epoch:3d}/{args.num_epochs}] "
+            f"train_negative_mode_acc={format_per_mode(train_metrics['per_mode_acc'])}"
+        )
+        log.info(
+            f"[Epoch {epoch:3d}/{args.num_epochs}] "
+            f"val_negative_mode_acc={format_per_mode(val_metrics['per_mode_acc'])}"
         )
 
-        history.append({"epoch": epoch, "train_loss": train_loss, "train_acc": train_acc,
-                        "val_loss": val_metrics["loss"], "val_acc": val_metrics["acc"]})
+        history.append({
+            "epoch": epoch,
+            "train_loss": train_loss,
+            "train_acc": train_acc,
+            "val_loss": val_metrics["loss"],
+            "val_acc": val_metrics["acc"],
+            "positive_score_mean": val_metrics["positive_score_mean"],
+            "negative_score_mean": val_metrics["negative_score_mean"],
+            "auc": "" if val_metrics["auc"] is None else val_metrics["auc"],
+        })
 
         # save best
         if val_metrics["acc"] > best_val_acc:
@@ -284,14 +374,15 @@ def train(args):
             "optimizer_state_dict": optimizer.state_dict(),
             "history": history,
         }, output_dir / "latest.pt")
+        write_train_log_csv(output_dir / "train_log.csv", history)
 
     # final per-mode report
-    final_metrics = evaluate(model, val_loader, device, max_batches=args.max_val_batches)
+    final_metrics = evaluate(model, val_loader, device, criterion, max_batches=args.max_val_batches)
     log.info("=== Final Validation ===")
     log.info(f"  Accuracy: {final_metrics['acc']:.4f}")
-    log.info(f"  AUC: {final_metrics['auc']:.4f}")
-    log.info(f"  Pos score: {final_metrics['pos_score']:.4f}")
-    log.info(f"  Neg score: {final_metrics['neg_score']:.4f}")
+    log.info(f"  AUC: {format_auc(final_metrics['auc'])}")
+    log.info(f"  Positive score mean: {final_metrics['positive_score_mean']:.4f}")
+    log.info(f"  Negative score mean: {final_metrics['negative_score_mean']:.4f}")
     log.info("  Per-mode accuracy:")
     for mode, acc in sorted(final_metrics["per_mode_acc"].items()):
         log.info(f"    {mode}: {acc:.4f}")
@@ -329,7 +420,7 @@ def main():
         nargs="+",
         default=["shift", "wrong_goal", "jitter", "wrong_heading", "reverse_heading", "path_shuffle"],
     )
-    parser.add_argument("--input_dim", type=int, default=19)
+    parser.add_argument("--input_dim", type=int, default=20)
     parser.add_argument("--hidden_dim", type=int, default=256)
     parser.add_argument("--num_layers", type=int, default=4)
     parser.add_argument("--num_heads", type=int, default=4)
@@ -371,6 +462,7 @@ def main():
                 if k in t and k not in cli_flags:
                     setattr(args, k, t[k])
 
+    apply_smoke_defaults(args, cli_flags)
     train(args)
 
 

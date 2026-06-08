@@ -136,12 +136,13 @@ class KimodoSceneCo(nn.Module):
 
                 x_proj = _self.input_linear(x)
 
-                if _self.num_text_tokens is not None:
+                num_text_tokens = getattr(_self, "num_text_tokens", None)
+                if num_text_tokens is not None:
                     text_feat_padded, text_feat_pad_mask_padded = (
                         pad_x_and_mask_to_fixed_size(
                             text_feat,
                             text_feat_pad_mask,
-                            _self.num_text_tokens,
+                            num_text_tokens,
                         )
                     )
                 else:
@@ -155,7 +156,8 @@ class KimodoSceneCo(nn.Module):
                 )
                 prefix_feats = torch.cat((emb_text, emb_time), axis=1)
 
-                if not _self.use_text_mask:
+                use_text_mask = getattr(_self, "use_text_mask", True)
+                if not use_text_mask:
                     text_feat_pad_mask_out = torch.ones(
                         (batch_size, emb_text.shape[1]),
                         dtype=torch.bool,
@@ -166,7 +168,10 @@ class KimodoSceneCo(nn.Module):
 
                 prefix_mask = torch.cat((text_feat_pad_mask_out, time_mask), axis=1)
 
-                if _self.input_first_heading_angle:
+                input_first_heading_angle = getattr(
+                    _self, "input_first_heading_angle", False
+                )
+                if input_first_heading_angle:
                     assert first_heading_angle is not None
                     fha_feats = torch.stack(
                         [
@@ -230,7 +235,7 @@ class KimodoSceneCo(nn.Module):
                 use_external_root=False,
             ):
                 motion_rep = _self.motion_rep
-                mask_mode = _self.motion_mask_mode
+                mask_mode = getattr(_self, "motion_mask_mode", "none")
 
                 if mask_mode == "concat":
                     if motion_mask is None or observed_motion is None:
@@ -562,6 +567,8 @@ class KimodoSceneCo(nn.Module):
         w_energy: float = 0.3,
         sdf_voxel_size: float = 0.1,
         sdf_grid_origin: tuple = (0.0, 0.0, 0.0),
+        external_root: Optional[torch.Tensor] = None,
+        use_external_root: bool = False,
     ) -> Tuple[torch.Tensor, Dict[str, float]]:
         """One DDIM step with trained RootPathSceneClassifier guidance.
 
@@ -574,10 +581,10 @@ class KimodoSceneCo(nn.Module):
         self.diffusion.calc_diffusion_vars(use_timesteps)
         t_map = map_tensor[t]
 
-        motion_grad = motion.detach().clone().requires_grad_(True)
+        x = motion.detach().requires_grad_(True)
 
         pred_x0 = self.predict_x0(
-            motion=motion_grad,
+            motion=x,
             pad_mask=pad_mask,
             text_feat=text_feat,
             text_pad_mask=text_pad_mask,
@@ -589,6 +596,8 @@ class KimodoSceneCo(nn.Module):
             scene_feat=scene_feat,
             scene_mask=scene_mask,
             cfg_type=cfg_type,
+            external_root=external_root,
+            use_external_root=use_external_root,
         )
 
         root_slice = self.motion_rep.root_slice
@@ -603,13 +612,7 @@ class KimodoSceneCo(nn.Module):
             root_5d=root_meter,
             target_path_xz=target_path_xz,
             scene_sdf=scene_sdf,
-            sample_sdf_fn=(
-                lambda sdf, pos: sample_sdf_2d(
-                    sdf, pos, voxel_size=sdf_voxel_size, grid_origin=sdf_grid_origin
-                )
-                if scene_sdf is not None
-                else None
-            ),
+            sample_sdf_fn=None,
         )
 
         logit = root_classifier(frame_feat, pad_mask=pad_mask)
@@ -637,21 +640,22 @@ class KimodoSceneCo(nn.Module):
             loss_total = loss_total + w_energy * energy_losses["total"]
             metrics.update({f"energy_{k}": float(v.detach().item()) for k, v in energy_losses.items()})
 
-        grad = torch.autograd.grad(loss_total, motion_grad)[0]
+        grad = torch.autograd.grad(loss_total, x)[0]
 
         root_grad = torch.zeros_like(grad)
         root_grad[..., root_slice] = grad[..., root_slice]
         grad = root_grad
 
         grad_norm = grad.flatten(1).norm(dim=1).view(-1, 1, 1).clamp_min(1e-6)
+        metrics["grad_norm"] = float(grad_norm.mean().detach().item())
         grad = grad * (max_grad_norm / grad_norm).clamp(max=1.0)
 
-        motion_guided = motion - classifier_guidance_scale * grad
-        motion_guided = motion_guided.detach()
+        x_guided = x - classifier_guidance_scale * grad
+        x_guided = x_guided.detach()
 
         with torch.inference_mode():
             pred_clean = self.predict_x0(
-                motion=motion_guided,
+                motion=x_guided,
                 pad_mask=pad_mask,
                 text_feat=text_feat,
                 text_pad_mask=text_pad_mask,
@@ -663,9 +667,11 @@ class KimodoSceneCo(nn.Module):
                 scene_feat=scene_feat,
                 scene_mask=scene_mask,
                 cfg_type=cfg_type,
+                external_root=external_root,
+                use_external_root=use_external_root,
             )
 
-        x_tm1 = self.sampler(use_timesteps, motion_guided, pred_clean, t)
+        x_tm1 = self.sampler(use_timesteps, x_guided, pred_clean, t)
         metrics["loss_total"] = float(loss_total.detach().item())
         return x_tm1, metrics
 
@@ -751,7 +757,7 @@ class KimodoSceneCo(nn.Module):
         classifier_guidance_scale: float = 0.05,
         classifier_max_grad_norm: float = 1.0,
         root_classifier_start_step: int = 0,
-        root_classifier_end_step: Optional[int] = None,
+        root_classifier_end_step: int = 40,
         hybrid: bool = False,
         w_classifier: float = 1.0,
         w_energy: float = 0.3,
@@ -853,6 +859,8 @@ class KimodoSceneCo(nn.Module):
                     w_energy=w_energy,
                     sdf_voxel_size=sdf_voxel_size,
                     sdf_grid_origin=sdf_grid_origin,
+                    external_root=external_root,
+                    use_external_root=use_external_root,
                 )
             elif apply_energy_guidance and root_guidance_cfg.start_step <= i < root_guidance_cfg.end_step:
                 cur_mot, _ = self.denoising_step_with_root_guidance(
@@ -935,7 +943,7 @@ class KimodoSceneCo(nn.Module):
         classifier_guidance_scale: float = 0.05,
         classifier_max_grad_norm: float = 1.0,
         root_classifier_start_step: int = 0,
-        root_classifier_end_step: Optional[int] = None,
+        root_classifier_end_step: int = 40,
         hybrid: bool = False,
         w_classifier: float = 1.0,
         w_energy: float = 0.3,
@@ -1144,7 +1152,7 @@ class KimodoSceneCo(nn.Module):
         classifier_guidance_scale: float = 0.05,
         classifier_max_grad_norm: float = 1.0,
         root_classifier_start_step: int = 0,
-        root_classifier_end_step: Optional[int] = None,
+        root_classifier_end_step: int = 40,
         hybrid: bool = False,
         w_classifier: float = 1.0,
         w_energy: float = 0.3,

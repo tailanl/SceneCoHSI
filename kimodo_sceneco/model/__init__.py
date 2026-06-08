@@ -2,6 +2,13 @@
 # SPDX-License-Identifier: Apache-2.0
 """Kimodo-SceneCo model package: scene-conditioned motion generation."""
 
+import sys
+from pathlib import Path
+
+_KIMODO_REPO = Path(__file__).resolve().parents[3] / "kimodo"
+if _KIMODO_REPO.is_dir() and str(_KIMODO_REPO) not in sys.path:
+    sys.path.insert(0, str(_KIMODO_REPO))
+
 from .cakey import CaKeyLayer, build_keyframe_mask
 from .common import resolve_target
 from .llm2vec import LLM2VecEncoder

@@ -2,6 +2,7 @@
 
 Builds a rich per-frame feature vector combining:
   - root position (xz)
+  - root height (y)
   - target path
   - positional differences
   - velocities & speeds
@@ -32,12 +33,13 @@ def build_root_classifier_features(
         sample_sdf_fn:   optional function (scene_sdf, pos) -> (B, T, 1)
 
     Returns:
-        frame_feat: (B, T, C)
+        frame_feat: (B, T, 20)
     """
     pos = root_5d[..., 0:3]          # (B, T, 3)
     heading = root_5d[..., 3:5]      # (B, T, 2)
 
     root_xz = pos[..., [0, 2]]       # (B, T, 2)
+    root_y = pos[..., 1:2]           # (B, T, 1)
     target_xz = target_path_xz       # (B, T, 2)
 
     # velocity (central difference approximation)
@@ -76,6 +78,7 @@ def build_root_classifier_features(
     frame_feat = torch.cat(
         [
             root_xz,              # 2
+            root_y,               # 1
             target_xz,            # 2
             root_minus_target,    # 2
             dist_to_target,       # 1
@@ -86,7 +89,7 @@ def build_root_classifier_features(
             heading,              # 2
             path_dir,             # 2
             heading_path_error,   # 1
-            sdf_value,            # 1 => total 19
+            sdf_value,            # 1 => total 20
         ],
         dim=-1,
     )
