@@ -905,6 +905,10 @@ class KimodoSceneCo(nn.Module):
                         external_root=external_root,
                         use_external_root=use_external_root,
                     )
+                # Clone to exit inference_mode (required for downstream
+                # in-place ops like fix_root_each_step or requires_grad_
+                # in classifier guidance steps).
+                cur_mot = cur_mot.clone()
 
             # --- Post-step root fix ---
             if apply_fix_root:

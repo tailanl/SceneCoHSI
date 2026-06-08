@@ -33,7 +33,7 @@ def build_root_classifier_features(
         sample_sdf_fn:   optional function (scene_sdf, pos) -> (B, T, 1)
 
     Returns:
-        frame_feat: (B, T, 20)
+        frame_feat: (B, T, 19) when scene_sdf is None, else (B, T, 20)
     """
     pos = root_5d[..., 0:3]          # (B, T, 3)
     heading = root_5d[..., 3:5]      # (B, T, 2)
@@ -67,31 +67,29 @@ def build_root_classifier_features(
     root_minus_target = root_xz - target_xz
     dist_to_target = root_minus_target.norm(dim=-1, keepdim=True)
 
-    # scene sdf
+    # core features (19 dims, matching classifier checkpoint input_dim=19)
+    feat_parts = [
+        root_xz,              # 2
+        root_y,               # 1
+        target_xz,            # 2
+        root_minus_target,    # 2
+        dist_to_target,       # 1
+        root_vel,             # 2
+        target_vel,           # 2
+        root_speed,           # 1
+        target_speed,         # 1
+        heading,              # 2
+        path_dir,             # 2
+        heading_path_error,   # 1
+    ]
+
+    # scene sdf (optional 20th feature, only when SDF is available)
     if scene_sdf is not None and sample_sdf_fn is not None:
         sdf_value = sample_sdf_fn(scene_sdf, pos)
         if sdf_value.dim() == dist_to_target.dim() - 1:
             sdf_value = sdf_value.unsqueeze(-1)
-    else:
-        sdf_value = torch.zeros_like(dist_to_target)
+        feat_parts.append(sdf_value)
 
-    frame_feat = torch.cat(
-        [
-            root_xz,              # 2
-            root_y,               # 1
-            target_xz,            # 2
-            root_minus_target,    # 2
-            dist_to_target,       # 1
-            root_vel,             # 2
-            target_vel,           # 2
-            root_speed,           # 1
-            target_speed,         # 1
-            heading,              # 2
-            path_dir,             # 2
-            heading_path_error,   # 1
-            sdf_value,            # 1 => total 20
-        ],
-        dim=-1,
-    )
+    frame_feat = torch.cat(feat_parts, dim=-1)
 
     return frame_feat

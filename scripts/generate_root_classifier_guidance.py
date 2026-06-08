@@ -7,6 +7,7 @@ import csv
 import json
 import logging
 import os
+import random
 import sys
 import types
 from pathlib import Path
@@ -134,6 +135,44 @@ def find_cache_files(cache_dir: str | None) -> list[Path]:
         if files:
             return files
     return []
+
+
+def filter_cache_files_by_split(
+    cache_files: list[Path],
+    split: str,
+    min_frames: int = 40,
+    max_frames: int = 196,
+    train_ratio: float = 0.9,
+    seed: int = 42,
+) -> list[Path]:
+    """Filter cache files by frame count and train/val split, matching dataset logic."""
+    # Filter by frame count
+    valid = []
+    for f in cache_files:
+        try:
+            data = np.load(str(f), allow_pickle=True)
+            length = int(data["length"])
+            if min_frames <= length <= max_frames:
+                valid.append(f)
+        except Exception:
+            log.warning("Skipping unreadable file: %s", f)
+
+    # Shuffle with same seed as dataset
+    rng = random.Random(seed)
+    indices = list(range(len(valid)))
+    rng.shuffle(indices)
+
+    n_train = int(len(indices) * train_ratio)
+    if split == "train":
+        selected = [valid[i] for i in indices[:n_train]]
+    elif split == "val":
+        selected = [valid[i] for i in indices[n_train:]]
+    else:
+        selected = valid
+
+    log.info("Split=%s: %d/%d files after frame filter (%d-%d frames)",
+             split, len(selected), len(cache_files), min_frames, max_frames)
+    return selected
 
 
 def load_cache_data(path: Path) -> dict:
@@ -277,6 +316,14 @@ def main() -> None:
     parser.add_argument("--output_dir", type=str, required=True)
     parser.add_argument("--cache_dir", type=str, default=None)
     parser.add_argument("--num_samples", type=int, default=30)
+    parser.add_argument("--all", action="store_true", help="Process all cache files (overrides --num_samples)")
+    parser.add_argument("--split", type=str, default="all",
+                        choices=["train", "val", "all"],
+                        help="Filter cache files by dataset split")
+    parser.add_argument("--min_frames", type=int, default=40)
+    parser.add_argument("--max_frames", type=int, default=196)
+    parser.add_argument("--skip_existing", action="store_true",
+                        help="Skip output files that already exist")
     parser.add_argument("--num_denoising_steps", type=int, default=None)
     parser.add_argument("--cfg_weight", type=float, nargs=2, default=None)
     parser.add_argument("--hybrid", action="store_true")
@@ -306,7 +353,7 @@ def main() -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
 
     ckpt_path = args.classifier_ckpt or cfg.get("root_classifier", {}).get(
-        "checkpoint", "outputs/root_path_classifier/best.pt"
+        "checkpoint", "outputs/root_path_scene_classifier/best.pt"
     )
     num_steps = args.num_denoising_steps or gen_cfg.get("num_denoising_steps", 50)
     cfg_weight = args.cfg_weight or gen_cfg.get("cfg_weight", [2.0, 2.0])
@@ -329,13 +376,34 @@ def main() -> None:
         raise FileNotFoundError("No .npz or .pt cache files found for target paths")
     log.info("Found %d cache files", len(cache_files))
 
+    # Filter by split and frame count
+    cache_files = filter_cache_files_by_split(
+        cache_files,
+        split=args.split,
+        min_frames=args.min_frames,
+        max_frames=args.max_frames,
+    )
+
+    # Determine number of samples
+    if args.all:
+        num_samples = len(cache_files)
+    else:
+        num_samples = min(args.num_samples, len(cache_files))
+
+    # Filter out already-existing outputs
+    if args.skip_existing:
+        cache_files = [f for f in cache_files if not (output_dir / f"{f.stem}.npz").exists()]
+        log.info("After skip_existing: %d files remain to process", len(cache_files))
+        if args.all:
+            num_samples = len(cache_files)
+
     root_guidance_cfg = make_root_guidance_cfg(cfg, enabled=hybrid_enabled)
     metadata = []
     guidance_rows: list[dict] = []
     current_sample_id = {"value": -1}
     install_guidance_logger(model, guidance_rows, lambda: current_sample_id["value"])
 
-    for sample_idx, cache_file in enumerate(cache_files[: args.num_samples]):
+    for sample_idx, cache_file in enumerate(cache_files[:num_samples]):
         current_sample_id["value"] = sample_idx
         data = load_cache_data(cache_file)
         motion = get_motion_tensor(data, cache_file)
@@ -372,7 +440,7 @@ def main() -> None:
         target_path_np = target_path_xz[0].detach().cpu().numpy().astype(np.float32)
         scene_name = get_scene_name(data)
 
-        out_file = output_dir / f"{cache_file.stem}_{sample_idx:04d}.npz"
+        out_file = output_dir / f"{cache_file.stem}.npz"
         np.savez(
             out_file,
             guided_root_5d_norm=guided_root_5d_norm,
@@ -396,7 +464,7 @@ def main() -> None:
             }
         )
         if (sample_idx + 1) % 10 == 0:
-            log.info("Generated %d/%d", sample_idx + 1, args.num_samples)
+            log.info("Generated %d/%d", sample_idx + 1, num_samples)
 
     with (output_dir / "metadata.json").open("w") as f:
         json.dump(metadata, f, indent=2)

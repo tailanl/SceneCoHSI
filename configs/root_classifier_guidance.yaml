@@ -6,8 +6,8 @@ model:
   checkpoint: models/Kimodo-SMPLX-RP-v1
 
 root_classifier:
-  checkpoint: outputs/root_path_classifier/best.pt
-  input_dim: 20
+  checkpoint: outputs/root_path_scene_classifier/best.pt
+  input_dim: 19
   hidden_dim: 256
   num_layers: 4
   num_heads: 4
