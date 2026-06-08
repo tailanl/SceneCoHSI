@@ -187,6 +187,7 @@ def main():
                     external_root=external_root,
                     use_external_root=True,
                 )
+            cur_mot = cur_mot.clone()  # exit inference_mode → regular tensor
 
             # Post-step root fix
             if args.fix_root_each_step:
