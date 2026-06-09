@@ -3,7 +3,7 @@ experiment:
   description: "Analytical root energy guidance for path control and scene collision reduction"
 
 model:
-  checkpoint: "models/Kimodo-SMPLX-RP-v1"
+  checkpoint: "Kimodo-SMPLX-RP-v1"
   use_trajco: false
   use_sceneco: false
 

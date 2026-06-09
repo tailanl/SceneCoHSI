@@ -118,13 +118,17 @@ def main():
 
     pred_dir = Path(args.pred_dir)
     npz_files = sorted(pred_dir.glob("sample_*.npz"))
+    if not npz_files:
+        npz_files = sorted(pred_dir.glob("seg_*.npz"))
+    if not npz_files:
+        npz_files = sorted(pred_dir.glob("*.npz"))
     log.info(f"Found {len(npz_files)} samples in {pred_dir}")
 
     all_metrics = []
     for npz_file in npz_files:
         data = np.load(str(npz_file), allow_pickle=True)
-        gen_root = data["gen_root"]  # (T, 3)
-        gt_root_xz = data["gt_root_xz"]  # (T, 2)
+        gen_root = np.array(data["gen_root"], dtype=np.float32)  # (T, 3)
+        gt_root_xz = np.array(data["gt_root_xz"], dtype=np.float32)  # (T, 2)
 
         metrics = compute_path_metrics(gen_root, gt_root_xz)
         metrics["sample_id"] = npz_file.stem

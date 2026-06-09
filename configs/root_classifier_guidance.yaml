@@ -3,7 +3,7 @@ experiment:
   output_dir: outputs/root_classifier_guidance
 
 model:
-  checkpoint: models/Kimodo-SMPLX-RP-v1
+  checkpoint: Kimodo-SMPLX-RP-v1
 
 root_classifier:
   checkpoint: outputs/root_path_scene_classifier/best.pt

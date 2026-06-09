@@ -170,6 +170,10 @@ def main():
 
     pred_dir = Path(args.pred_dir)
     npz_files = sorted(pred_dir.glob("sample_*.npz"))
+    if not npz_files:
+        npz_files = sorted(pred_dir.glob("seg_*.npz"))
+    if not npz_files:
+        npz_files = sorted(pred_dir.glob("*.npz"))
     log.info(f"Found {len(npz_files)} samples in {pred_dir}")
 
     all_metrics = []

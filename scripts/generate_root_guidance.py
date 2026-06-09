@@ -23,8 +23,9 @@ import argparse, json, logging, sys
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
-sys.path.insert(0, str(PROJECT_ROOT))
-sys.path.insert(0, str(PROJECT_ROOT / "kimodo"))
+sys.path.insert(0, str(PROJECT_ROOT / "kimodo_scene_project"))
+sys.path.insert(1, str(PROJECT_ROOT))
+sys.path.insert(2, str(PROJECT_ROOT / "kimodo"))
 
 import os
 os.environ["CHECKPOINT_DIR"] = str(PROJECT_ROOT / "kimodo_scene_project/models")
@@ -86,10 +87,12 @@ def load_samples(cache_indices, cache_dir=None):
     return samples
 
 
-def extract_gt_root_path(motion_rep, features):
+def extract_gt_root_path(motion_rep, features, device=None):
     """Extract GT root XZ path from normalized motion features (meter space)."""
     if isinstance(features, np.ndarray):
         features = torch.from_numpy(features).float()
+    if device is not None:
+        features = features.to(device)
     feat_t = features.unsqueeze(0)
     unnorm = motion_rep.unnormalize(feat_t)
     output = motion_rep.inverse(unnorm, is_normalized=False, return_numpy=True)
@@ -180,7 +183,7 @@ def denoising_step_with_guidance(
     x_guided = x_guided.detach()
 
     # 4. DDIM step with guided x
-    with torch.inference_mode():
+    with torch.no_grad():
         pred_clean = model.denoiser(
             cfg_weight,
             x_guided,
@@ -203,6 +206,10 @@ def main():
     parser.add_argument("--output_dir", type=str, default="outputs/guidance_path_only")
     parser.add_argument("--num_samples", type=int, default=30)
     parser.add_argument("--start_idx", type=int, default=0)
+    parser.add_argument("--split", type=str, default=None, choices=["train", "val"],
+                       help="Use train/val split as defined by seed/ratio")
+    parser.add_argument("--split_seed", type=int, default=42)
+    parser.add_argument("--split_ratio", type=float, default=0.9)
     parser.add_argument("--scene_guidance", action="store_true")
     parser.add_argument("--guidance_scale", type=float, default=None)
     parser.add_argument("--target_path_file", type=str, default=None,
@@ -251,7 +258,7 @@ def main():
 
     # Load model
     log.info("Loading Kimodo model...")
-    model_ckpt = cfg.get("model", {}).get("checkpoint", "models/Kimodo-SMPLX-RP-v1")
+    model_ckpt = cfg.get("model", {}).get("checkpoint", "Kimodo-SMPLX-RP-v1")
     model = load_model(model_ckpt, device=device)
     model.eval()
 
@@ -259,6 +266,20 @@ def main():
     start_idx_all = np.load(str(PROJECT_ROOT / "LINGO/dataset/dataset/start_idx.npy")).flatten()
     end_idx_all = np.load(str(PROJECT_ROOT / "LINGO/dataset/dataset/end_idx.npy")).flatten()
     valid_indices = [i for i in range(len(start_idx_all)) if 40 <= end_idx_all[i] - start_idx_all[i] <= 196]
+
+    if args.split is not None:
+        import random
+        rng = random.Random(args.split_seed)
+        shuffled = list(valid_indices)
+        rng.shuffle(shuffled)
+        n_train = int(len(shuffled) * args.split_ratio)
+        if args.split == "train":
+            valid_indices = sorted(shuffled[:n_train])
+        else:
+            valid_indices = sorted(shuffled[n_train:])
+
+    if args.num_samples == -1:
+        args.num_samples = len(valid_indices)
     sample_indices = valid_indices[args.start_idx:args.start_idx + args.num_samples]
     samples = load_samples(sample_indices)
 
@@ -320,7 +341,7 @@ def main():
 
         if not external_paths or target_path_xz is None:
             # Extract GT root path as target (in meter space)
-            gt_root_xz = extract_gt_root_path(model.motion_rep, sample["motion_features"])
+            gt_root_xz = extract_gt_root_path(model.motion_rep, sample["motion_features"], device=device)
             target_path_xz = torch.from_numpy(gt_root_xz).float().unsqueeze(0).to(device)
 
         target_path_xz = smooth_path_xz(target_path_xz, kernel_size=5)
@@ -385,7 +406,7 @@ def main():
                 )
                 step_losses.append({k: v.item() for k, v in losses.items()})
             else:
-                with torch.inference_mode():
+                with torch.no_grad():
                     cur_mot = model.denoising_step(
                         cur_mot, motion_pad_mask, text_feat, text_pad_mask,
                         t, first_heading_angle, motion_mask, observed_motion,
@@ -411,13 +432,14 @@ def main():
         results.append(result)
 
         np.savez(
-            str(output_dir / f"sample_{si:03d}.npz"),
+            str(output_dir / f"seg_{sample['cache_idx']:05d}.npz"),
             gen_root=gen_root,
             gt_root_xz=gt_root_xz,
             gen_joints=gen_joints,
             gt_joints=sample["gt_joints"][:T],
             text=sample["text"],
             scene_name=sample.get("scene_name", ""),
+            guided_root_5d_norm=cur_mot[0, :, :5].cpu().numpy(),
         )
 
     # Summary

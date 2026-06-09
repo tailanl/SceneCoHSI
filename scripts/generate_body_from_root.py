@@ -43,8 +43,9 @@ from kimodo_sceneco.model.kimodo_model import KimodoSceneCo
 log = logging.getLogger(__name__)
 
 
-def load_kimodo_sceneco(model_ckpt, device):
+def load_kimodo_sceneco(model_ckpt, device, checkpoint=None):
     """Load base Kimodo + wrap in KimodoSceneCo for full external_root support.
+    Optionally load a Stage2 fine-tuned checkpoint.
 
     Returns:
         KimodoSceneCo wrapper with patched denoiser forward (external_root/use_external_root).
@@ -61,6 +62,12 @@ def load_kimodo_sceneco(model_ckpt, device):
         device=device,
         cfg_type="separated",
     )
+
+    if checkpoint is not None:
+        log.info(f"Loading Stage2 checkpoint from {checkpoint}...")
+        ckpt = torch.load(checkpoint, map_location=device)
+        model.load_state_dict(ckpt, strict=False)
+
     model.eval()
     log.info("KimodoSceneCo wrapper loaded (external_root/use_external_root enabled)")
     return model
@@ -70,7 +77,12 @@ def root_5d_from_meter(root_meter_3d, heading_2d, motion_rep):
     """Convert meter-space root positions + heading to normalized 5D root."""
     root_5d = np.concatenate([root_meter_3d, heading_2d], axis=-1)  # (T, 5)
     root_5d_t = torch.from_numpy(root_5d).float().unsqueeze(0)  # (1, T, 5)
-    return motion_rep.normalize_root(root_5d_t)
+    T = root_5d_t.shape[1]
+    full_dim = motion_rep.motion_rep_dim
+    full_tensor = torch.zeros(1, T, full_dim)
+    full_tensor[:, :, :5] = root_5d_t
+    norm_full = motion_rep.normalize(full_tensor)
+    return norm_full[:, :, :5]
 
 
 def heading_from_path(root_xz):
@@ -88,6 +100,7 @@ def main():
     parser.add_argument("--root_dir", type=str, required=True)
     parser.add_argument("--output_dir", type=str, required=True)
     parser.add_argument("--model_ckpt", type=str, default="kimodo-smplx-rp")
+    parser.add_argument("--checkpoint", type=str, default=None)
     parser.add_argument("--num_denoising_steps", type=int, default=50)
     parser.add_argument("--cfg_weight", type=float, nargs="+", default=[2.0, 2.0])
     parser.add_argument("--fix_root_each_step", action="store_true", default=True)
@@ -103,7 +116,7 @@ def main():
     output_dir.mkdir(parents=True, exist_ok=True)
 
     # Load model with KimodoSceneCo wrapper
-    model = load_kimodo_sceneco(args.model_ckpt, device)
+    model = load_kimodo_sceneco(args.model_ckpt, device, checkpoint=args.checkpoint)
 
     root_slice = model.motion_rep.root_slice
     cfg_weight = args.cfg_weight
@@ -113,6 +126,8 @@ def main():
     # Find root NPZ files
     root_dir = Path(args.root_dir)
     npz_files = sorted(root_dir.glob("sample_*.npz"))
+    if not npz_files:
+        npz_files = sorted(root_dir.glob("seg_*.npz"))
     if not npz_files:
         # Try flat directory
         npz_files = sorted(root_dir.glob("*.npz"))
@@ -211,12 +226,15 @@ def main():
             )
 
         # Save
+        gt_root_xz_out = data.get("gt_root_xz", None)
+        if gt_root_xz_out is None:
+            gt_root_xz_out = data.get("target_path_xz", None)
         np.savez(
             str(output_dir / npz_file.name),
             gen_root=gen_root_out,
             gen_joints=gen_joints,
             gt_joints=data.get("gt_joints", None),
-            gt_root_xz=data.get("gt_root_xz", None),
+            gt_root_xz=gt_root_xz_out,
             text=text,
             scene_name=str(data.get("scene_name", "")),
         )
