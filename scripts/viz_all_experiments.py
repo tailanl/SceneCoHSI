@@ -37,10 +37,10 @@ EXPERIMENTS = {
     "E1": {"name": "EnergyGuidance + Orig", "body_dir": "outputs/e1_energy_guidance_body"},
     "E2": {"name": "ClassifierGuidance + Orig", "body_dir": "outputs/e2_classifier_guidance_body"},
     "E3": {"name": "HybridGuidance + Orig", "body_dir": "outputs/e3_hybrid_guidance_body"},
-    "E4": {"name": "Energy + Stage2", "body_dir": "outputs/e4_energy_stage2_sceneco/val_gen"},
-    "E5": {"name": "Classifier + Stage2", "body_dir": "outputs/e5_classifier_stage2_sceneco/val_gen"},
-    "E6": {"name": "Hybrid + Stage2", "body_dir": "outputs/e6_hybrid_stage2_sceneco/val_gen"},
-    "E7": {"name": "GT + Stage2", "body_dir": "outputs/e7_gt_root_stage2_sceneco/val_gen"},
+    "E4": {"name": "Energy + Stage2 v3", "body_dir": "outputs/e4_v3_stage2/val_gen"},
+    "E5": {"name": "Classifier + Stage2 v3", "body_dir": "outputs/e5_v3_stage2/val_gen"},
+    "E6": {"name": "Hybrid + Stage2 v3", "body_dir": "outputs/e6_v3_stage2/val_gen"},
+    "E7": {"name": "GT + Stage2 v3", "body_dir": "outputs/e7_v3_stage2/val_gen"},
 }
 
 
