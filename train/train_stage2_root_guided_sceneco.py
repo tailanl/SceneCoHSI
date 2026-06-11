@@ -4,9 +4,9 @@
 Trains SceneCo body-only adapter with external guided root:
   - Root Stage: NOT predicted; uses external_root (guided_root_5d).
   - Body Stage: SceneCo body-only cross-attention.
-  - TrajCo: disabled.
+  - TrajCo: optional; when enabled, external_root is encoded as trajectory condition.
   - Loss: body_slice only (root is external, not learned).
-  - Freeze: pretrained backbone, train scene_encoder + body SceneCo adapter.
+  - Freeze: pretrained backbone, train scene_encoder + body SceneCo/TrajCo adapters.
 
 Usage:
   CUDA_VISIBLE_DEVICES=0 python train/train_stage2_root_guided_sceneco.py \\
@@ -65,10 +65,20 @@ def build_model(config: dict, device, ckpt_path: Optional[str] = None):
 
     - Root stage: external_root used, root_model skipped entirely.
     - Body stage: SceneCo body-only cross-attention.
-    - TrajCo: disabled.
-    - Freeze: pretrained backbone; train scene_encoder + body SceneCo only.
+    - TrajCo: optional; uses external_root as the trajectory condition.
+    - Freeze: pretrained backbone; train scene_encoder + body SceneCo/TrajCo only.
     """
     sceneco_cfg = config.get("sceneco", {})
+    trajco_cfg = config.get("trajco", {})
+    use_trajco_root = bool(trajco_cfg.get("use_trajco_root", False))
+    use_trajco_body = bool(trajco_cfg.get("use_trajco_body", False))
+    use_trajco = bool(
+        trajco_cfg.get("enabled", trajco_cfg.get("use_trajco", False))
+        or use_trajco_root
+        or use_trajco_body
+    )
+    trajco_type = trajco_cfg.get("trajco_type", "cross_attn")
+    trajco_dropout = float(trajco_cfg.get("trajco_dropout", 0.1))
 
     # Load base Kimodo
     pretrained = load_model("Kimodo-SMPLX-RP-v1", device="cpu",
@@ -90,6 +100,14 @@ def build_model(config: dict, device, ckpt_path: Optional[str] = None):
         },
         device=device,
         cfg_type="scene_separated",
+        use_in_root_model=bool(sceneco_cfg.get("use_in_root_model", False)),
+        use_in_body_model=bool(sceneco_cfg.get("use_in_body_model", True)),
+        use_trajco=use_trajco,
+        use_trajco_root=use_trajco_root,
+        use_trajco_body=use_trajco_body,
+        traj_dim=int(trajco_cfg.get("traj_dim", 5)),
+        trajco_type=trajco_type,
+        trajco_dropout=trajco_dropout,
     ).to(device)
 
     del pretrained
@@ -179,7 +197,7 @@ def build_model(config: dict, device, ckpt_path: Optional[str] = None):
 
     for name, param in model.named_parameters():
         if any(kw in name for kw in ("sceneco", "scene_encoder", "scene_null_embed",
-                                       "voxel_vit")):
+                                       "voxel_vit", "trajco", "traj_encoder")):
             param.requires_grad = True
         elif "root_model" in name:
             param.requires_grad = False
@@ -190,6 +208,17 @@ def build_model(config: dict, device, ckpt_path: Optional[str] = None):
     total = sum(p.numel() for p in model.parameters())
     log.info(f"Stage2 Root-Guided SceneCo: trainable={trainable:,} / total={total:,} "
              f"({100*trainable/max(1,total):.1f}%)")
+    root_trajco = getattr(inner_denoiser.root_model, "trajco_layers", None)
+    body_trajco = getattr(inner_denoiser.body_model, "trajco_layers", None)
+    log.info(
+        "TrajCo: enabled=%s root=%s body=%s type=%s layers(root=%s, body=%s)",
+        use_trajco,
+        use_trajco_root,
+        use_trajco_body,
+        trajco_type,
+        len(root_trajco) if root_trajco else 0,
+        len(body_trajco) if body_trajco else 0,
+    )
 
     # ----- Load checkpoint -----
     if ckpt_path and Path(ckpt_path).exists():
@@ -316,6 +345,8 @@ def log_first_batch(model, batch, device):
     log.info(f"  scene_mask: valid={scene_mask.float().mean()*100:.1f}%")
     body_layers = getattr(model.denoiser.model.body_model, 'sceneco_layers', None)
     log.info(f"  body sceneco_layers: {len(body_layers) if body_layers else 0}")
+    body_trajco = getattr(model.denoiser.model.body_model, 'trajco_layers', None)
+    log.info(f"  body trajco_layers: {len(body_trajco) if body_trajco else 0}")
     log.info("=" * 60)
 
 
@@ -344,6 +375,13 @@ def prepare_batch(model, batch, device, training=True):
     if has_external_root:
         external_root = batch["external_root"].to(device)
 
+    traj_feats, traj_mask = None, None
+    if getattr(model, "traj_encoder", None) is not None:
+        root_slice = model.motion_rep.root_slice
+        traj_source = external_root if external_root is not None else motion[..., root_slice]
+        traj_mask = mask.clone()
+        traj_feats, traj_mask = model.encode_traj(traj_source, traj_mask)
+
     # Body-only loss mask
     D = motion.shape[-1]
     loss_mask = torch.zeros(1, 1, D, device=device)
@@ -363,8 +401,8 @@ def prepare_batch(model, batch, device, training=True):
         "observed_motion": None,
         "cfg_type": "nocfg",
         "loss_mask": loss_mask,
-        "traj_feats": None,
-        "traj_mask": None,
+        "traj_feats": traj_feats,
+        "traj_mask": traj_mask,
         "external_root": external_root,
         "use_external_root": has_external_root,
         "prior_weight": 0.0,

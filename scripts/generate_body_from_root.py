@@ -43,7 +43,16 @@ from kimodo_sceneco.model.kimodo_model import KimodoSceneCo
 log = logging.getLogger(__name__)
 
 
-def load_kimodo_sceneco(model_ckpt, device, checkpoint=None):
+def load_kimodo_sceneco(
+    model_ckpt,
+    device,
+    checkpoint=None,
+    use_trajco=False,
+    use_trajco_root=False,
+    use_trajco_body=False,
+    trajco_type="cross_attn",
+    trajco_dropout=0.1,
+):
     """Load base Kimodo + wrap in KimodoSceneCo for full external_root support.
     Optionally load a Stage2 fine-tuned checkpoint.
 
@@ -61,15 +70,29 @@ def load_kimodo_sceneco(model_ckpt, device, checkpoint=None):
         num_base_steps=1000,
         device=device,
         cfg_type="separated",
+        use_trajco=use_trajco,
+        use_trajco_root=use_trajco_root,
+        use_trajco_body=use_trajco_body,
+        traj_dim=5,
+        trajco_type=trajco_type,
+        trajco_dropout=trajco_dropout,
     )
 
     if checkpoint is not None:
         log.info(f"Loading Stage2 checkpoint from {checkpoint}...")
         ckpt = torch.load(checkpoint, map_location=device)
-        model.load_state_dict(ckpt, strict=False)
+        state_dict = ckpt.get("model_state_dict", ckpt)
+        model.load_state_dict(state_dict, strict=False)
 
     model.eval()
-    log.info("KimodoSceneCo wrapper loaded (external_root/use_external_root enabled)")
+    log.info(
+        "KimodoSceneCo wrapper loaded (external_root/use_external_root enabled, "
+        "trajco=%s root=%s body=%s type=%s)",
+        use_trajco,
+        use_trajco_root,
+        use_trajco_body,
+        trajco_type,
+    )
     return model
 
 
@@ -104,6 +127,11 @@ def main():
     parser.add_argument("--num_denoising_steps", type=int, default=50)
     parser.add_argument("--cfg_weight", type=float, nargs="+", default=[2.0, 2.0])
     parser.add_argument("--fix_root_each_step", action="store_true", default=True)
+    parser.add_argument("--use_trajco", action="store_true")
+    parser.add_argument("--trajco_root", action="store_true")
+    parser.add_argument("--trajco_body", action="store_true")
+    parser.add_argument("--trajco_type", type=str, default="cross_attn")
+    parser.add_argument("--trajco_dropout", type=float, default=0.1)
     parser.add_argument("--gpu", type=int, default=0)
     args = parser.parse_args()
 
@@ -116,7 +144,16 @@ def main():
     output_dir.mkdir(parents=True, exist_ok=True)
 
     # Load model with KimodoSceneCo wrapper
-    model = load_kimodo_sceneco(args.model_ckpt, device, checkpoint=args.checkpoint)
+    model = load_kimodo_sceneco(
+        args.model_ckpt,
+        device,
+        checkpoint=args.checkpoint,
+        use_trajco=args.use_trajco or args.trajco_root or args.trajco_body,
+        use_trajco_root=args.trajco_root,
+        use_trajco_body=args.trajco_body,
+        trajco_type=args.trajco_type,
+        trajco_dropout=args.trajco_dropout,
+    )
 
     root_slice = model.motion_rep.root_slice
     cfg_weight = args.cfg_weight
@@ -176,6 +213,9 @@ def main():
         observed_motion = torch.zeros(
             1, T, model.motion_rep.motion_rep_dim, device=device
         )
+        traj_feats, traj_mask = None, None
+        if getattr(model, "traj_encoder", None) is not None:
+            traj_feats, traj_mask = model.encode_traj(external_root, motion_pad_mask)
 
         cur_mot = torch.randn(1, T, model.motion_rep.motion_rep_dim, device=device)
 
@@ -201,6 +241,8 @@ def main():
                     cfg_weight=cfg_weight,
                     external_root=external_root,
                     use_external_root=True,
+                    traj_feats=traj_feats,
+                    traj_mask=traj_mask,
                 )
             cur_mot = cur_mot.clone()  # exit inference_mode → regular tensor
 

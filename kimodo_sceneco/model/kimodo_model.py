@@ -28,6 +28,8 @@ from kimodo.skeleton import SOMASkeleton30
 from kimodo.tools import to_numpy
 
 from .sceneco_layers import SceneCoLayer
+from .traj_encoder import TrajEncoder
+from .trajco_layers import TrajCoCrossLayer, TrajCoLayer
 from ..critic.root_classifier_features import build_root_classifier_features
 from ..guidance.root_guidance import (
     RootGuidanceConfig,
@@ -40,6 +42,33 @@ from .cfg import ClassifierFreeGuidedModel
 from .scene_encoder import BBoxEncoder, VoxelViT
 
 log = logging.getLogger(__name__)
+
+
+def _sample_sdf_2d_maybe_batched(
+    scene_sdf: torch.Tensor,
+    pos: torch.Tensor,
+    voxel_size: float,
+    grid_origin: tuple,
+) -> torch.Tensor:
+    if scene_sdf.dim() == 3:
+        values = []
+        for batch_idx in range(pos.shape[0]):
+            sdf_idx = min(batch_idx, scene_sdf.shape[0] - 1)
+            values.append(
+                sample_sdf_2d(
+                    scene_sdf[sdf_idx],
+                    pos[batch_idx:batch_idx + 1],
+                    voxel_size=voxel_size,
+                    grid_origin=grid_origin,
+                )[0]
+            )
+        return torch.stack(values, dim=0)
+    return sample_sdf_2d(
+        scene_sdf,
+        pos,
+        voxel_size=voxel_size,
+        grid_origin=grid_origin,
+    )
 
 
 class KimodoSceneCo(nn.Module):
@@ -57,11 +86,35 @@ class KimodoSceneCo(nn.Module):
         scene_encoder_config: Optional[dict] = None,
         device: Optional[Union[str, torch.device]] = None,
         cfg_type: Optional[str] = "scene_separated",
+        use_in_root_model: bool = True,
+        use_in_body_model: bool = True,
+        use_trajco: bool = False,
+        use_trajco_root: bool = False,
+        use_trajco_body: bool = False,
+        traj_dim: int = 5,
+        trajco_type: str = "cross_attn",
+        trajco_dropout: float = 0.1,
     ):
         super().__init__()
 
         scene_feat_dim = (scene_encoder_config or {}).get("d_model", 256)
-        self._patch_denoiser(denoiser, scene_feat_dim)
+        self.use_in_root_model = use_in_root_model
+        self.use_in_body_model = use_in_body_model
+        self.use_trajco = use_trajco
+        self.use_trajco_root = use_trajco_root
+        self.use_trajco_body = use_trajco_body
+        self.has_trajco = use_trajco
+        self.trajco_type = trajco_type
+        self._patch_denoiser(
+            denoiser,
+            scene_feat_dim,
+            use_in_root_model=use_in_root_model,
+            use_in_body_model=use_in_body_model,
+            use_trajco_root=use_trajco and use_trajco_root,
+            use_trajco_body=use_trajco and use_trajco_body,
+            trajco_type=trajco_type,
+            trajco_dropout=trajco_dropout,
+        )
 
         self.denoiser = denoiser.eval()
 
@@ -96,6 +149,13 @@ class KimodoSceneCo(nn.Module):
             }
         )
 
+        self.traj_encoder = None
+        if use_trajco:
+            self.traj_encoder = TrajEncoder(
+                input_dim=traj_dim,
+                d_model=denoiser.root_model.latent_dim,
+            )
+
         self.device = device
         self.to(device)
 
@@ -103,22 +163,56 @@ class KimodoSceneCo(nn.Module):
     #  SceneCo injection (monkey-patch denoiser forward)
     # ------------------------------------------------------------------
 
-    def _patch_denoiser(self, denoiser: nn.Module, scene_feat_dim: int):
-        """Inject SceneCo layers into root_model and body_model blocks."""
-        for block in [denoiser.root_model, denoiser.body_model]:
+    def _patch_denoiser(
+        self,
+        denoiser: nn.Module,
+        scene_feat_dim: int,
+        use_in_root_model: bool = True,
+        use_in_body_model: bool = True,
+        use_trajco_root: bool = False,
+        use_trajco_body: bool = False,
+        trajco_type: str = "cross_attn",
+        trajco_dropout: float = 0.1,
+    ):
+        """Inject SceneCo/TrajCo layers into root_model and body_model blocks."""
+        block_specs = [
+            (denoiser.root_model, use_in_root_model, use_trajco_root),
+            (denoiser.body_model, use_in_body_model, use_trajco_body),
+        ]
+        for block, enable_scene, enable_trajco in block_specs:
             if hasattr(block, "_sceneco_patched"):
                 continue
 
-            block.sceneco_layers = nn.ModuleList(
-                [
-                    SceneCoLayer(
-                        d_model=block.latent_dim,
-                        scene_feat_dim=scene_feat_dim,
-                        nhead=block.num_heads,
-                    )
-                    for _ in range(block.num_layers)
-                ]
-            )
+            block.sceneco_layers = nn.ModuleList()
+            if enable_scene:
+                block.sceneco_layers = nn.ModuleList(
+                    [
+                        SceneCoLayer(
+                            d_model=block.latent_dim,
+                            scene_feat_dim=scene_feat_dim,
+                            nhead=block.num_heads,
+                        )
+                        for _ in range(block.num_layers)
+                    ]
+                )
+            block.trajco_layers = nn.ModuleList()
+            if enable_trajco:
+                layer_cls = TrajCoCrossLayer if trajco_type == "cross_attn" else TrajCoLayer
+                block.trajco_layers = nn.ModuleList(
+                    [
+                        layer_cls(
+                            d_model=block.latent_dim,
+                            nhead=block.num_heads,
+                            dropout=trajco_dropout,
+                        )
+                        if layer_cls is TrajCoCrossLayer
+                        else layer_cls(
+                            d_model=block.latent_dim,
+                            dropout=trajco_dropout,
+                        )
+                        for _ in range(block.num_layers)
+                    ]
+                )
             block._sceneco_patched = True
 
             def _patched_block_forward(
@@ -131,6 +225,8 @@ class KimodoSceneCo(nn.Module):
                 first_heading_angle=None,
                 scene_feat=None,
                 scene_mask=None,
+                traj_feats=None,
+                traj_mask=None,
             ):
                 batch_size = len(x)
 
@@ -196,8 +292,10 @@ class KimodoSceneCo(nn.Module):
 
                 for i, layer in enumerate(_self.seqTransEncoder.layers):
                     xseq = layer(xseq, src_key_padding_mask=src_key_padding_mask)
-                    if scene_feat is not None:
+                    if scene_feat is not None and len(_self.sceneco_layers) > i:
                         xseq = _self.sceneco_layers[i](xseq, scene_feat, scene_mask)
+                    if traj_feats is not None and len(_self.trajco_layers) > i:
+                        xseq = _self.trajco_layers[i](xseq, traj_feats, traj_mask)
 
                 if _self.seqTransEncoder.norm is not None:
                     xseq = _self.seqTransEncoder.norm(xseq)
@@ -264,6 +362,8 @@ class KimodoSceneCo(nn.Module):
                         first_heading_angle=first_heading_angle,
                         scene_feat=root_scene_feat,
                         scene_mask=root_scene_mask,
+                        traj_feats=traj_feats,
+                        traj_mask=traj_mask,
                     )
 
                 lengths = x_pad_mask.sum(-1)
@@ -297,6 +397,8 @@ class KimodoSceneCo(nn.Module):
                     first_heading_angle=first_heading_angle,
                     scene_feat=body_scene_feat,
                     scene_mask=body_scene_mask,
+                    traj_feats=traj_feats,
+                    traj_mask=traj_mask,
                 )
 
                 output = torch.cat([root_motion_pred, predicted_body], axis=-1)
@@ -320,6 +422,8 @@ class KimodoSceneCo(nn.Module):
                 "sceneco" in name
                 or "scene_encoder" in name
                 or "scene_null_embed" in name
+                or "trajco" in name
+                or "traj_encoder" in name
             ):
                 param.requires_grad = True
             else:
@@ -329,14 +433,26 @@ class KimodoSceneCo(nn.Module):
         frozen = sum(p.numel() for p in self.parameters() if not p.requires_grad)
         log.info(f"Trainable params: {trainable:,} | Frozen params: {frozen:,}")
 
+    def freeze_for_trajco(self):
+        for name, param in self.named_parameters():
+            param.requires_grad = ("trajco" in name or "traj_encoder" in name)
+
+        trainable = sum(p.numel() for p in self.parameters() if p.requires_grad)
+        frozen = sum(p.numel() for p in self.parameters() if not p.requires_grad)
+        log.info(f"TrajCo trainable params: {trainable:,} | Frozen params: {frozen:,}")
+
     def train(self, mode: bool = True):
         self.denoiser.train(mode)
         self.scene_encoder.train(mode)
+        if self.traj_encoder is not None:
+            self.traj_encoder.train(mode)
         return self
 
     def eval(self):
         self.denoiser.eval()
         self.scene_encoder.eval()
+        if self.traj_encoder is not None:
+            self.traj_encoder.eval()
         return self
 
     def encode_scene(
@@ -371,6 +487,19 @@ class KimodoSceneCo(nn.Module):
         )
         return null_feat, null_mask
 
+    def encode_traj(
+        self,
+        traj: torch.Tensor,
+        traj_mask: Optional[torch.Tensor] = None,
+    ) -> Tuple[torch.Tensor, Optional[torch.Tensor]]:
+        if self.traj_encoder is None:
+            raise RuntimeError("encode_traj called but KimodoSceneCo was built without TrajCo.")
+        device = self.device or traj.device
+        traj = traj.to(device).float()
+        if traj_mask is not None:
+            traj_mask = traj_mask.to(device).bool()
+        return self.traj_encoder(traj, traj_mask), traj_mask
+
     # ------------------------------------------------------------------
     #  predict_x0 — clean motion prediction at arbitrary timestep
     # ------------------------------------------------------------------
@@ -388,6 +517,8 @@ class KimodoSceneCo(nn.Module):
         cfg_weight: Union[float, Tuple[float, ...]] = [2.0, 2.0],
         scene_feat: Optional[torch.Tensor] = None,
         scene_mask: Optional[torch.Tensor] = None,
+        traj_feats: Optional[torch.Tensor] = None,
+        traj_mask: Optional[torch.Tensor] = None,
         cfg_type: Optional[str] = None,
         external_root: Optional[torch.Tensor] = None,
         use_external_root: bool = False,
@@ -409,6 +540,8 @@ class KimodoSceneCo(nn.Module):
             observed_motion,
             scene_feat=scene_feat,
             scene_mask=scene_mask,
+            traj_feats=traj_feats,
+            traj_mask=traj_mask,
             external_root=external_root,
             use_external_root=use_external_root,
             cfg_type=cfg_type,
@@ -437,6 +570,8 @@ class KimodoSceneCo(nn.Module):
         sdf_grid_origin: tuple = (0.0, 0.0, 0.0),
         scene_feat: Optional[torch.Tensor] = None,
         scene_mask: Optional[torch.Tensor] = None,
+        traj_feats: Optional[torch.Tensor] = None,
+        traj_mask: Optional[torch.Tensor] = None,
         cfg_type: Optional[str] = None,
         external_root: Optional[torch.Tensor] = None,
         use_external_root: bool = False,
@@ -478,6 +613,8 @@ class KimodoSceneCo(nn.Module):
             cfg_weight=cfg_weight,
             scene_feat=scene_feat,
             scene_mask=scene_mask,
+            traj_feats=traj_feats,
+            traj_mask=traj_mask,
             cfg_type=cfg_type,
             external_root=external_root,
             use_external_root=use_external_root,
@@ -490,7 +627,7 @@ class KimodoSceneCo(nn.Module):
             root_slice=self.motion_rep.root_slice,
             cfg=root_guidance_cfg,
             scene_sdf=scene_sdf,
-            sample_sdf_fn=lambda sdf, pos: sample_sdf_2d(
+            sample_sdf_fn=lambda sdf, pos: _sample_sdf_2d_maybe_batched(
                 sdf, pos, voxel_size=sdf_voxel_size, grid_origin=sdf_grid_origin
             ),
             motion_rep=self.motion_rep,
@@ -528,6 +665,8 @@ class KimodoSceneCo(nn.Module):
                 observed_motion,
                 scene_feat=scene_feat,
                 scene_mask=scene_mask,
+                traj_feats=traj_feats,
+                traj_mask=traj_mask,
                 cfg_type=cfg_type,
                 external_root=external_root,
                 use_external_root=use_external_root,
@@ -569,6 +708,8 @@ class KimodoSceneCo(nn.Module):
         sdf_grid_origin: tuple = (0.0, 0.0, 0.0),
         external_root: Optional[torch.Tensor] = None,
         use_external_root: bool = False,
+        traj_feats: Optional[torch.Tensor] = None,
+        traj_mask: Optional[torch.Tensor] = None,
     ) -> Tuple[torch.Tensor, Dict[str, float]]:
         """One DDIM step with trained RootPathSceneClassifier guidance.
 
@@ -595,6 +736,8 @@ class KimodoSceneCo(nn.Module):
             cfg_weight=cfg_weight,
             scene_feat=scene_feat,
             scene_mask=scene_mask,
+            traj_feats=traj_feats,
+            traj_mask=traj_mask,
             cfg_type=cfg_type,
             external_root=external_root,
             use_external_root=use_external_root,
@@ -612,7 +755,11 @@ class KimodoSceneCo(nn.Module):
             root_5d=root_meter,
             target_path_xz=target_path_xz,
             scene_sdf=scene_sdf,
-            sample_sdf_fn=None,
+            sample_sdf_fn=(
+                lambda sdf, pos: _sample_sdf_2d_maybe_batched(
+                    sdf, pos, voxel_size=sdf_voxel_size, grid_origin=sdf_grid_origin
+                )
+            ) if scene_sdf is not None else None,
         )
 
         logit = root_classifier(frame_feat, pad_mask=pad_mask)
@@ -631,7 +778,7 @@ class KimodoSceneCo(nn.Module):
                 root_slice=root_slice,
                 cfg=root_guidance_cfg,
                 scene_sdf=scene_sdf,
-                sample_sdf_fn=lambda sdf, pos: sample_sdf_2d(
+                sample_sdf_fn=lambda sdf, pos: _sample_sdf_2d_maybe_batched(
                     sdf, pos, voxel_size=sdf_voxel_size, grid_origin=sdf_grid_origin
                 ),
                 motion_rep=self.motion_rep,
@@ -666,6 +813,8 @@ class KimodoSceneCo(nn.Module):
                 cfg_weight=cfg_weight,
                 scene_feat=scene_feat,
                 scene_mask=scene_mask,
+                traj_feats=traj_feats,
+                traj_mask=traj_mask,
                 cfg_type=cfg_type,
                 external_root=external_root,
                 use_external_root=use_external_root,
@@ -694,6 +843,8 @@ class KimodoSceneCo(nn.Module):
         scene_feat: Optional[torch.Tensor] = None,
         scene_mask: Optional[torch.Tensor] = None,
         guide_masks: Optional[Dict] = None,
+        traj_feats: Optional[torch.Tensor] = None,
+        traj_mask: Optional[torch.Tensor] = None,
         cfg_type: Optional[str] = None,
         external_root: Optional[torch.Tensor] = None,
         use_external_root: bool = False,
@@ -717,6 +868,8 @@ class KimodoSceneCo(nn.Module):
                 observed_motion,
                 scene_feat=scene_feat,
                 scene_mask=scene_mask,
+                traj_feats=traj_feats,
+                traj_mask=traj_mask,
                 cfg_type=cfg_type,
                 external_root=external_root,
                 use_external_root=use_external_root,
@@ -765,6 +918,9 @@ class KimodoSceneCo(nn.Module):
         external_root: Optional[torch.Tensor] = None,
         use_external_root: bool = False,
         fix_root_each_step: bool = False,
+        # --- TrajCo ---
+        traj_feats: Optional[torch.Tensor] = None,
+        traj_mask: Optional[torch.Tensor] = None,
     ) -> torch.Tensor:
         """Core DDIM reverse process.
 
@@ -822,6 +978,8 @@ class KimodoSceneCo(nn.Module):
             and use_external_root
             and external_root is not None
         )
+        if traj_feats is None and self.traj_encoder is not None and external_root is not None:
+            traj_feats, traj_mask = self.encode_traj(external_root, pad_mask)
 
         for i in progress_bar(indices):
             t = torch.tensor([i] * cur_mot.size(0), device=self.device)
@@ -861,6 +1019,8 @@ class KimodoSceneCo(nn.Module):
                     sdf_grid_origin=sdf_grid_origin,
                     external_root=external_root,
                     use_external_root=use_external_root,
+                    traj_feats=traj_feats,
+                    traj_mask=traj_mask,
                 )
             elif apply_energy_guidance and root_guidance_cfg.start_step <= i < root_guidance_cfg.end_step:
                 cur_mot, _ = self.denoising_step_with_root_guidance(
@@ -884,6 +1044,8 @@ class KimodoSceneCo(nn.Module):
                     cfg_type=cfg_type,
                     external_root=external_root,
                     use_external_root=use_external_root,
+                    traj_feats=traj_feats,
+                    traj_mask=traj_mask,
                 )
             else:
                 with torch.inference_mode():
@@ -904,6 +1066,8 @@ class KimodoSceneCo(nn.Module):
                         cfg_type=cfg_type,
                         external_root=external_root,
                         use_external_root=use_external_root,
+                        traj_feats=traj_feats,
+                        traj_mask=traj_mask,
                     )
                 # Clone to exit inference_mode (required for downstream
                 # in-place ops like fix_root_each_step or requires_grad_
@@ -955,6 +1119,9 @@ class KimodoSceneCo(nn.Module):
         external_root: Optional[torch.Tensor] = None,
         use_external_root: bool = False,
         fix_root_each_step: bool = False,
+        # --- TrajCo ---
+        traj_feats: Optional[torch.Tensor] = None,
+        traj_mask: Optional[torch.Tensor] = None,
     ) -> torch.Tensor:
         """Multi-prompt long-horizon generation with transitions."""
         device = self.device
@@ -1075,6 +1242,8 @@ class KimodoSceneCo(nn.Module):
                 external_root=external_root,
                 use_external_root=use_external_root,
                 fix_root_each_step=fix_root_each_step,
+                traj_feats=traj_feats,
+                traj_mask=traj_mask,
             )
 
             motion = self.motion_rep.unnormalize(motion)
@@ -1164,6 +1333,9 @@ class KimodoSceneCo(nn.Module):
         external_root: Optional[torch.Tensor] = None,
         use_external_root: bool = False,
         fix_root_each_step: bool = False,
+        # --- TrajCo ---
+        traj_feats: Optional[torch.Tensor] = None,
+        traj_mask: Optional[torch.Tensor] = None,
     ) -> dict:
         device = self.device
 
@@ -1195,6 +1367,8 @@ class KimodoSceneCo(nn.Module):
                 external_root=external_root,
                 use_external_root=use_external_root,
                 fix_root_each_step=fix_root_each_step,
+                traj_feats=traj_feats,
+                traj_mask=traj_mask,
             )
 
         tosqueeze = False
@@ -1264,6 +1438,8 @@ class KimodoSceneCo(nn.Module):
             external_root=external_root,
             use_external_root=use_external_root,
             fix_root_each_step=fix_root_each_step,
+            traj_feats=traj_feats,
+            traj_mask=traj_mask,
         )
 
         if tosqueeze:

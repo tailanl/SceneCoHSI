@@ -15,6 +15,8 @@ import numpy as np
 import torch
 from torch.utils.data import Dataset
 
+from kimodo_sceneco.guidance.scene_guidance import build_2d_sdf
+
 
 MOTION_KEYS = ("motion_features", "motion", "beta_motion", "data")
 NEGATIVE_MODES = (
@@ -24,6 +26,7 @@ NEGATIVE_MODES = (
     "wrong_heading",
     "reverse_heading",
     "path_shuffle",
+    "scene_collision",
 )
 
 
@@ -175,6 +178,9 @@ def extract_root_5d_meter(motion_rep, features_np: np.ndarray, device: str | tor
 def make_negative_root_numpy(
     root_5d: np.ndarray,
     mode: str,
+    scene_sdf: np.ndarray | None = None,
+    voxel_size: float = 0.1,
+    grid_origin: tuple[float, float, float] = (0.0, 0.0, 0.0),
     shift_scale: float = 0.8,
     wrong_goal_scale: float = 1.2,
     jitter_scale: float = 0.15,
@@ -198,6 +204,17 @@ def make_negative_root_numpy(
     elif mode == "path_shuffle":
         order = np.random.permutation(T)
         root[:, [0, 2]] = root[order][:, [0, 2]]
+    elif mode == "scene_collision":
+        if scene_sdf is None:
+            root[:, [0, 2]] += np.random.randn(1, 2).astype(np.float32) * shift_scale
+        else:
+            sdf = np.asarray(scene_sdf, dtype=np.float32)
+            ix, iz = np.unravel_index(np.argmin(sdf), sdf.shape)
+            target_x = grid_origin[0] + float(ix) * voxel_size
+            target_z = grid_origin[2] + float(iz) * voxel_size
+            center = root[:, [0, 2]].mean(axis=0)
+            shift = np.asarray([target_x, target_z], dtype=np.float32) - center
+            root[:, [0, 2]] += shift[None]
     else:
         raise ValueError(f"Unknown negative mode: {mode}")
 
@@ -225,6 +242,8 @@ class RootClassifierDataset(Dataset):
         negative_modes: Iterable[str] | None = None,
         use_scene_sdf: bool = False,
         scene_dir: str | Path | None = None,
+        sdf_voxel_size: float = 0.1,
+        sdf_grid_origin: tuple[float, float, float] = (0.0, 0.0, 0.0),
     ):
         super().__init__()
         self.files = find_cache_files(cache_dir, split=split)
@@ -240,6 +259,8 @@ class RootClassifierDataset(Dataset):
             raise ValueError(f"Unknown negative mode(s): {unknown_modes}; valid modes={list(NEGATIVE_MODES)}")
         self.use_scene_sdf = use_scene_sdf
         self.scene_dir = Path(scene_dir) if scene_dir else None
+        self.sdf_voxel_size = sdf_voxel_size
+        self.sdf_grid_origin = sdf_grid_origin
 
     def __len__(self) -> int:
         return len(self.files)
@@ -249,9 +270,28 @@ class RootClassifierDataset(Dataset):
         root_5d = extract_root_5d_meter(self.motion_rep, features, device="cpu")
         return root_5d[: self.max_frames]
 
+    def _load_scene_sdf(self, file_idx: int) -> np.ndarray | None:
+        if not self.use_scene_sdf:
+            return None
+        path = self.files[file_idx]
+        if path.suffix != ".npz":
+            return None
+        with np.load(path, allow_pickle=True) as data:
+            if "voxel_grid" not in data:
+                return None
+            voxel = torch.from_numpy(np.asarray(data["voxel_grid"], dtype=np.float32))
+        sdf = build_2d_sdf(
+            voxel,
+            voxel_size=self.sdf_voxel_size,
+            grid_origin=self.sdf_grid_origin,
+            device=torch.device("cpu"),
+        )
+        return sdf.cpu().numpy().astype(np.float32)
+
     def __getitem__(self, idx: int) -> dict:
         file_idx = idx % len(self.files)
         root_5d = self._load_root_5d(file_idx)
+        scene_sdf = self._load_scene_sdf(file_idx)
         T = min(root_5d.shape[0], self.max_frames)
         root_5d = root_5d[:T]
         target_path_xz = root_5d[:, [0, 2]].copy()
@@ -271,12 +311,18 @@ class RootClassifierDataset(Dataset):
                 root_5d = root_5d[:T_pair]
                 target_path_xz = other_root[:T_pair, [0, 2]].copy()
             else:
-                root_5d = make_negative_root_numpy(root_5d, negative_mode)
+                root_5d = make_negative_root_numpy(
+                    root_5d,
+                    negative_mode,
+                    scene_sdf=scene_sdf,
+                    voxel_size=self.sdf_voxel_size,
+                    grid_origin=self.sdf_grid_origin,
+                )
 
         pad_root, pad_mask = pad_to_length(root_5d, self.max_frames, width=5)
         pad_path, _ = pad_to_length(target_path_xz, self.max_frames, width=2)
 
-        return {
+        item = {
             "root_5d": pad_root.astype(np.float32),
             "target_path_xz": pad_path.astype(np.float32),
             "pad_mask": pad_mask.astype(bool),
@@ -284,10 +330,15 @@ class RootClassifierDataset(Dataset):
             "negative_mode": negative_mode,
             "source_file": str(self.files[file_idx]),
         }
+        if self.use_scene_sdf:
+            if scene_sdf is None:
+                scene_sdf = np.zeros((64, 64), dtype=np.float32)
+            item["scene_sdf"] = scene_sdf.astype(np.float32)
+        return item
 
 
 def collate_root_classifier(batch: list[dict]) -> dict:
-    return {
+    result = {
         "root_5d": torch.from_numpy(np.stack([item["root_5d"] for item in batch])).float(),
         "target_path_xz": torch.from_numpy(np.stack([item["target_path_xz"] for item in batch])).float(),
         "pad_mask": torch.from_numpy(np.stack([item["pad_mask"] for item in batch])).bool(),
@@ -295,6 +346,11 @@ def collate_root_classifier(batch: list[dict]) -> dict:
         "negative_mode": [item["negative_mode"] for item in batch],
         "source_file": [item["source_file"] for item in batch],
     }
+    if "scene_sdf" in batch[0]:
+        result["scene_sdf"] = torch.from_numpy(
+            np.stack([item["scene_sdf"] for item in batch])
+        ).float()
+    return result
 
 
 root_classifier_collate_fn = collate_root_classifier

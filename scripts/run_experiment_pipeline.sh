@@ -54,26 +54,26 @@ declare -A ROOT_DIR BODY_DIR METRIC_PREFIX
 ROOT_DIR["E1"]="outputs/e1_energy_guidance_root"
 ROOT_DIR["E2"]="outputs/e2_classifier_guidance_root"
 ROOT_DIR["E3"]="outputs/e3_hybrid_guidance_root"
-ROOT_DIR["E4"]="outputs/e4_energy_guidance_val/path_only"
+ROOT_DIR["E4"]="outputs/e4_energy_guidance_val_v3"
 ROOT_DIR["E5"]="outputs/e5_classifier_guidance_val/path_only"
 ROOT_DIR["E6"]="outputs/e6_hybrid_guidance_val/path_only"
-ROOT_DIR["E7"]="outputs/e7_gt_root_val"
+ROOT_DIR["E7"]="outputs/e7_gt_root_v3_val"
 
 BODY_DIR["E1"]="outputs/e1_energy_guidance_body"
 BODY_DIR["E2"]="outputs/e2_classifier_guidance_body"
 BODY_DIR["E3"]="outputs/e3_hybrid_guidance_body"
-BODY_DIR["E4"]="outputs/e4_energy_stage2_sceneco/val_gen"
+BODY_DIR["E4"]="outputs/e4_energy_stage2_sceneco_v3/val_gen"
 BODY_DIR["E5"]="outputs/e5_classifier_stage2_sceneco/val_gen"
 BODY_DIR["E6"]="outputs/e6_hybrid_stage2_sceneco/val_gen"
-BODY_DIR["E7"]="outputs/e7_gt_root_stage2_sceneco/val_gen"
+BODY_DIR["E7"]="outputs/e7_gt_root_stage2_sceneco_v3/val_gen"
 
 METRIC_PREFIX["E1"]="e1_energy_guidance_original_body"
 METRIC_PREFIX["E2"]="e2_classifier_guidance_original_body"
 METRIC_PREFIX["E3"]="e3_hybrid_guidance_original_body"
-METRIC_PREFIX["E4"]="e4_energy_guidance_stage2_sceneco"
+METRIC_PREFIX["E4"]="e4_energy_guidance_stage2_sceneco_v3"
 METRIC_PREFIX["E5"]="e5_classifier_guidance_stage2_sceneco"
 METRIC_PREFIX["E6"]="e6_hybrid_guidance_stage2_sceneco"
-METRIC_PREFIX["E7"]="e7_gt_root_stage2_sceneco"
+METRIC_PREFIX["E7"]="e7_gt_root_stage2_sceneco_v3"
 
 ROOT="${ROOT_DIR[$EXP]}"
 BODY="${BODY_DIR[$EXP]}"
@@ -143,7 +143,7 @@ echo ""
 echo "--- Step C: Scene Metrics ---"
 python eval/eval_sceneadapt_metrics.py \
     --pred_dir "$BODY" \
-    --scene_dir LINGO/dataset/dataset/Scene \
+    --cache_dir lingo_smplx_cache \
     --output_csv "$BODY/scene_metrics.csv" \
     --method "$NAME" \
     2>&1 | tee "$BODY/eval_scene.log"

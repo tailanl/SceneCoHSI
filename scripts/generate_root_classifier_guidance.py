@@ -31,6 +31,7 @@ from kimodo_sceneco.critic.root_classifier_dataset import (
     load_motion_features,
 )
 from kimodo_sceneco.guidance.root_guidance import RootGuidanceConfig
+from kimodo_sceneco.guidance.scene_guidance import build_2d_sdf, sample_sdf_2d
 from kimodo_sceneco.model.kimodo_model import KimodoSceneCo
 
 log = logging.getLogger(__name__)
@@ -93,13 +94,15 @@ def load_sceneco_model(
 def load_classifier(ckpt_path: str, cfg: dict, device: torch.device) -> RootPathSceneClassifier:
     ckpt = torch.load(ckpt_path, map_location=device, weights_only=False)
     classifier_cfg = cfg.get("root_classifier", {})
+    input_dim = ckpt.get("input_dim", classifier_cfg.get("input_dim", 19))
     model = RootPathSceneClassifier(
-        input_dim=ckpt.get("input_dim", classifier_cfg.get("input_dim", 20)),
+        input_dim=input_dim,
         hidden_dim=ckpt.get("hidden_dim", classifier_cfg.get("hidden_dim", 256)),
         num_layers=ckpt.get("num_layers", classifier_cfg.get("num_layers", 4)),
         num_heads=ckpt.get("num_heads", classifier_cfg.get("num_heads", 4)),
         dropout=ckpt.get("dropout", classifier_cfg.get("dropout", 0.1)),
     ).to(device)
+    model.input_dim = input_dim
     model.load_state_dict(ckpt["model_state_dict"])
     model.eval()
     for param in model.parameters():
@@ -210,6 +213,48 @@ def get_scene_name(data: dict) -> str:
     return str(value)
 
 
+def build_scene_sdf_from_cache(data: dict, device: torch.device) -> torch.Tensor | None:
+    if "voxel_grid" not in data:
+        return None
+    voxel = data["voxel_grid"]
+    if isinstance(voxel, torch.Tensor):
+        voxel_t = voxel.float().to(device)
+    else:
+        voxel_t = torch.from_numpy(np.asarray(voxel, dtype=np.float32)).to(device)
+    return build_2d_sdf(voxel_t, device=device)
+
+
+def build_scene_input_from_cache(data: dict, device: torch.device) -> torch.Tensor | None:
+    if "voxel_grid" not in data:
+        return None
+    voxel = data["voxel_grid"]
+    if isinstance(voxel, torch.Tensor):
+        voxel_t = voxel.float()
+    else:
+        voxel_t = torch.from_numpy(np.asarray(voxel, dtype=np.float32))
+    return voxel_t.unsqueeze(0).unsqueeze(0).to(device)
+
+
+def root_scene_metrics(root_5d_meter: np.ndarray, scene_sdf: torch.Tensor | None) -> dict:
+    if scene_sdf is None:
+        return {
+            "root_collision_rate": "",
+            "root_min_sdf": "",
+            "root_mean_sdf": "",
+            "root_sdf_penalty": "",
+        }
+    pos = torch.from_numpy(root_5d_meter[:, :3]).float().unsqueeze(0).to(scene_sdf.device)
+    with torch.no_grad():
+        sdf_value = sample_sdf_2d(scene_sdf, pos)[0]
+        penalty = torch.relu(0.10 - sdf_value).pow(2).mean()
+    return {
+        "root_collision_rate": float((sdf_value < 0).float().mean().item()),
+        "root_min_sdf": float(sdf_value.min().item()),
+        "root_mean_sdf": float(sdf_value.mean().item()),
+        "root_sdf_penalty": float(penalty.item()),
+    }
+
+
 def make_root_guidance_cfg(cfg: dict, enabled: bool) -> RootGuidanceConfig:
     energy = cfg.get("energy_guidance", cfg.get("path_guidance", {}))
     classifier = cfg.get("classifier_guidance", {})
@@ -309,6 +354,23 @@ def write_guidance_log(path: Path, rows: list[dict]) -> None:
             writer.writerow(row)
 
 
+def write_scene_collision_log(path: Path, rows: list[dict]) -> None:
+    fieldnames = [
+        "sample_id",
+        "source_cache",
+        "scene_name",
+        "root_collision_rate",
+        "root_min_sdf",
+        "root_mean_sdf",
+        "root_sdf_penalty",
+    ]
+    with path.open("w", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        writer.writeheader()
+        for row in rows:
+            writer.writerow({key: row.get(key, "") for key in fieldnames})
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", type=str, default="configs/root_classifier_guidance.yaml")
@@ -398,8 +460,18 @@ def main() -> None:
             num_samples = len(cache_files)
 
     root_guidance_cfg = make_root_guidance_cfg(cfg, enabled=hybrid_enabled)
+    use_scene_classifier = bool(
+        classifier_cfg.get("use_scene", getattr(root_classifier, "input_dim", 19) > 19)
+    )
+    use_scene_model = bool(classifier_cfg.get("use_scene_model", False))
+    if use_scene_classifier and getattr(root_classifier, "input_dim", 19) < 20:
+        raise ValueError(
+            "classifier_guidance.use_scene=true requires a classifier checkpoint "
+            "trained with input_dim=20"
+        )
     metadata = []
     guidance_rows: list[dict] = []
+    scene_rows: list[dict] = []
     current_sample_id = {"value": -1}
     install_guidance_logger(model, guidance_rows, lambda: current_sample_id["value"])
 
@@ -415,6 +487,10 @@ def main() -> None:
         root_5d_meter = extract_root_5d_meter(model.motion_rep, motion_features, device=device)[:T]
         target_path_xz = torch.from_numpy(root_5d_meter[:, [0, 2]]).float().unsqueeze(0).to(device)
         text = get_text(data, fallback="")
+        scene_sdf = build_scene_sdf_from_cache(data, device) if use_scene_classifier else None
+        scene_input = build_scene_input_from_cache(data, device) if use_scene_model else None
+        if use_scene_classifier and scene_sdf is None:
+            raise ValueError(f"{cache_file} has no voxel_grid; cannot run scene-aware classifier")
 
         output = model(
             prompts=[text],
@@ -432,6 +508,8 @@ def main() -> None:
             w_classifier=hybrid_cfg.get("w_classifier", 1.0),
             w_energy=hybrid_cfg.get("w_energy", 0.3),
             target_path_xz=target_path_xz,
+            scene_input=scene_input,
+            scene_sdf=scene_sdf,
             return_numpy=False,
         )
 
@@ -439,6 +517,7 @@ def main() -> None:
         guided_root_5d_norm = root_5d_norm_from_output(output, model, T)[:T]
         target_path_np = target_path_xz[0].detach().cpu().numpy().astype(np.float32)
         scene_name = get_scene_name(data)
+        scene_metrics = root_scene_metrics(guided_root_5d_meter, scene_sdf)
 
         out_file = output_dir / f"{cache_file.stem}.npz"
         np.savez(
@@ -461,6 +540,16 @@ def main() -> None:
                 "hybrid": bool(hybrid_enabled),
                 "classifier_guidance_scale": float(guidance_scale),
                 "max_grad_norm": float(max_grad_norm),
+                "scene_classifier": bool(use_scene_classifier),
+                **scene_metrics,
+            }
+        )
+        scene_rows.append(
+            {
+                "sample_id": sample_idx,
+                "source_cache": str(cache_file),
+                "scene_name": scene_name,
+                **scene_metrics,
             }
         )
         if (sample_idx + 1) % 10 == 0:
@@ -469,6 +558,7 @@ def main() -> None:
     with (output_dir / "metadata.json").open("w") as f:
         json.dump(metadata, f, indent=2)
     write_guidance_log(output_dir / "guidance_log.csv", guidance_rows)
+    write_scene_collision_log(output_dir / "scene_collision_log.csv", scene_rows)
     log.info("Done. Saved %d guided roots to %s", len(metadata), output_dir)
 
 

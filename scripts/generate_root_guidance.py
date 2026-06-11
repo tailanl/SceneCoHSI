@@ -22,13 +22,14 @@ Usage:
 import argparse, json, logging, sys
 from pathlib import Path
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
-sys.path.insert(0, str(PROJECT_ROOT / "kimodo_scene_project"))
-sys.path.insert(1, str(PROJECT_ROOT))
-sys.path.insert(2, str(PROJECT_ROOT / "kimodo"))
+PROJECT_DIR = Path(__file__).resolve().parent.parent
+REPO_ROOT = PROJECT_DIR.parent
+sys.path.insert(0, str(PROJECT_DIR))
+sys.path.insert(1, str(REPO_ROOT))
+sys.path.insert(2, str(REPO_ROOT / "kimodo"))
 
 import os
-os.environ["CHECKPOINT_DIR"] = str(PROJECT_ROOT / "kimodo_scene_project/models")
+os.environ["CHECKPOINT_DIR"] = str(PROJECT_DIR / "models")
 
 import numpy as np
 import torch
@@ -50,13 +51,13 @@ log = logging.getLogger(__name__)
 def load_samples(cache_indices, cache_dir=None):
     """Load dataset samples from LINGO cache."""
     if cache_dir is None:
-        cache_dir = PROJECT_ROOT / "lingo_smplx_cache"
+        cache_dir = PROJECT_DIR / "lingo_smplx_cache"
     else:
         cache_dir = Path(cache_dir)
 
-    joints_file = PROJECT_ROOT / "LINGO/dataset/dataset/human_joints_aligned.npy"
-    start_idx = np.load(str(PROJECT_ROOT / "LINGO/dataset/dataset/start_idx.npy")).flatten()
-    end_idx = np.load(str(PROJECT_ROOT / "LINGO/dataset/dataset/end_idx.npy")).flatten()
+    joints_file = PROJECT_DIR / "LINGO/dataset/dataset/human_joints_aligned.npy"
+    start_idx = np.load(str(PROJECT_DIR / "LINGO/dataset/dataset/start_idx.npy")).flatten()
+    end_idx = np.load(str(PROJECT_DIR / "LINGO/dataset/dataset/end_idx.npy")).flatten()
 
     seg_ranges = {}
     count = 0
@@ -100,10 +101,29 @@ def extract_gt_root_path(motion_rep, features, device=None):
     return root_pos[:, [0, 2]]  # XZ only
 
 
+def root_5d_meter_from_output(output):
+    """Return meter-space root [x, y, z, heading_cos, heading_sin]."""
+    root_pos = np.asarray(output["smooth_root_pos"], dtype=np.float32)
+    heading = np.asarray(output["global_root_heading"], dtype=np.float32)
+    if root_pos.ndim == 3:
+        root_pos = root_pos[0]
+    if heading.ndim == 3:
+        heading = heading[0]
+    if root_pos.ndim != 2 or root_pos.shape[1] < 3:
+        raise ValueError(f"smooth_root_pos must have shape (T, >=3), got {root_pos.shape}")
+    if heading.ndim != 2 or heading.shape[1] != 2:
+        raise ValueError(f"global_root_heading must have shape (T, 2), got {heading.shape}")
+    if root_pos.shape[0] != heading.shape[0]:
+        raise ValueError(
+            f"root/heading length mismatch: root={root_pos.shape}, heading={heading.shape}"
+        )
+    return np.concatenate([root_pos[:, :3], heading], axis=-1).astype(np.float32)
+
+
 def load_scene_voxel(scene_name, lingo_root=None):
     """Load scene voxel grid from LINGO dataset."""
     if lingo_root is None:
-        lingo_root = PROJECT_ROOT / "LINGO/dataset/dataset/Scene"
+        lingo_root = PROJECT_DIR / "LINGO/dataset/dataset/Scene"
     scene_dir = Path(lingo_root) / scene_name
     if not scene_dir.exists():
         return None
@@ -262,26 +282,60 @@ def main():
     model = load_model(model_ckpt, device=device)
     model.eval()
 
-    # Select samples
-    start_idx_all = np.load(str(PROJECT_ROOT / "LINGO/dataset/dataset/start_idx.npy")).flatten()
-    end_idx_all = np.load(str(PROJECT_ROOT / "LINGO/dataset/dataset/end_idx.npy")).flatten()
-    valid_indices = [i for i in range(len(start_idx_all)) if 40 <= end_idx_all[i] - start_idx_all[i] <= 196]
-
+    # Select samples using CACHE-BASED index (same as dataset._load_cached_index)
+    import random
+    cache_files = sorted((PROJECT_DIR / "lingo_smplx_cache").glob("seg_*.npz"))
+    valid_cache = []
+    for cf in cache_files:
+        if ".tmp" in cf.name:
+            continue
+        data = np.load(str(cf), allow_pickle=True)
+        T = int(data["length"])
+        if 40 <= T <= 196:
+            valid_cache.append({"cache_path": str(cf), "stem": cf.stem, "length": T})
+    
     if args.split is not None:
-        import random
         rng = random.Random(args.split_seed)
-        shuffled = list(valid_indices)
-        rng.shuffle(shuffled)
-        n_train = int(len(shuffled) * args.split_ratio)
+        indices = list(range(len(valid_cache)))
+        rng.shuffle(indices)
+        n_train = int(len(indices) * args.split_ratio)
         if args.split == "train":
-            valid_indices = sorted(shuffled[:n_train])
+            chosen = sorted(indices[:n_train])
         else:
-            valid_indices = sorted(shuffled[n_train:])
-
+            chosen = sorted(indices[n_train:])
+        valid_cache = [valid_cache[i] for i in chosen]
+    
     if args.num_samples == -1:
-        args.num_samples = len(valid_indices)
-    sample_indices = valid_indices[args.start_idx:args.start_idx + args.num_samples]
-    samples = load_samples(sample_indices)
+        args.num_samples = len(valid_cache)
+    chosen_samples = valid_cache[args.start_idx:args.start_idx + args.num_samples]
+    
+    # Build samples from cache
+    samples = []
+    joints_file = PROJECT_DIR / "LINGO/dataset/dataset/human_joints_aligned.npy"
+    joints_all = np.load(str(joints_file), mmap_mode="r")
+    start_idx_all = np.load(str(PROJECT_DIR / "LINGO/dataset/dataset/start_idx.npy")).flatten()
+    end_idx_all = np.load(str(PROJECT_DIR / "LINGO/dataset/dataset/end_idx.npy")).flatten()
+    
+    for cs in chosen_samples:
+        cf = Path(cs["cache_path"])
+        data = np.load(str(cf), allow_pickle=True)
+        T = cs["length"]
+        ci = int(cs["stem"].split("_")[1])
+        s, e = int(start_idx_all[ci]), int(end_idx_all[ci])
+        if s < e:
+            gt_joints = joints_all[s:s+T, :22, :].copy()
+        else:
+            gt_joints = np.zeros((T, 22, 3))
+        samples.append({
+            "cache_idx": ci,
+            "cache_stem": cs["stem"],
+            "cache_path": str(cf),
+            "text": str(data.get("text", "no-text")),
+            "num_frames": T,
+            "motion_features": data["motion_features"][:T],
+            "gt_joints": gt_joints,
+            "scene_name": str(data.get("scene_name", "")),
+        })
 
     log.info(f"Loaded {len(samples)} samples | guidance_scale={root_guidance_cfg.scale} | steps={num_denoising_steps}")
 
@@ -314,6 +368,8 @@ def main():
     for si, sample in enumerate(tqdm(samples, desc="Generating")):
         T = sample["num_frames"]
         text = sanitize_texts([sample["text"]])[0]
+        gt_root_xz = extract_gt_root_path(model.motion_rep, sample["motion_features"], device=device)
+        target_path_xz = None
 
         # Determine target path: external > GT
         if external_paths:
@@ -341,7 +397,6 @@ def main():
 
         if not external_paths or target_path_xz is None:
             # Extract GT root path as target (in meter space)
-            gt_root_xz = extract_gt_root_path(model.motion_rep, sample["motion_features"], device=device)
             target_path_xz = torch.from_numpy(gt_root_xz).float().unsqueeze(0).to(device)
 
         target_path_xz = smooth_path_xz(target_path_xz, kernel_size=5)
@@ -418,6 +473,15 @@ def main():
         output = model.motion_rep.inverse(cur_mot, is_normalized=True, return_numpy=True)
         gen_root = output["smooth_root_pos"][0]  # (T, 3)
         gen_joints = output["posed_joints"][0]    # (T, 22, 3)
+        guided_root_5d_norm = (
+            cur_mot[0, :, model.motion_rep.root_slice]
+            .detach()
+            .cpu()
+            .numpy()
+            .astype(np.float32)
+        )
+        guided_root_5d_meter = root_5d_meter_from_output(output)
+        target_path_np = target_path_xz[0].detach().cpu().numpy().astype(np.float32)
 
         result = {
             "cache_idx": sample["cache_idx"],
@@ -432,14 +496,17 @@ def main():
         results.append(result)
 
         np.savez(
-            str(output_dir / f"seg_{sample['cache_idx']:05d}.npz"),
+            str(output_dir / f"{sample['cache_stem']}.npz"),
             gen_root=gen_root,
             gt_root_xz=gt_root_xz,
             gen_joints=gen_joints,
             gt_joints=sample["gt_joints"][:T],
-            text=sample["text"],
-            scene_name=sample.get("scene_name", ""),
-            guided_root_5d_norm=cur_mot[0, :, :5].cpu().numpy(),
+            text=np.asarray(sample["text"]),
+            scene_name=np.asarray(sample.get("scene_name", "")),
+            guided_root_5d_norm=guided_root_5d_norm,
+            guided_root_5d_meter=guided_root_5d_meter,
+            target_path_xz=target_path_np,
+            source_file=np.asarray(str(sample.get("cache_path", ""))),
         )
 
     # Summary

@@ -42,6 +42,7 @@ from kimodo_sceneco.critic.root_classifier_dataset import (
     RootClassifierDataset,
     collate_root_classifier,
 )
+from kimodo_sceneco.guidance.scene_guidance import sample_sdf_2d
 from kimodo.motion_rep.reps.kimodo_motionrep import KimodoMotionRep
 from kimodo.skeleton import SMPLXSkeleton22
 
@@ -98,6 +99,16 @@ def compute_auc(probs, labels):
         return None
 
 
+def sample_batched_sdf_2d(scene_sdf: torch.Tensor, pos: torch.Tensor) -> torch.Tensor:
+    """Sample a different 2D SDF for each batch element."""
+    values = []
+    for batch_idx in range(pos.shape[0]):
+        values.append(
+            sample_sdf_2d(scene_sdf[batch_idx], pos[batch_idx:batch_idx + 1])[0]
+        )
+    return torch.stack(values, dim=0)
+
+
 def metrics_from_logits(logits, labels, neg_modes, loss_value):
     probs = torch.sigmoid(logits)
     preds = (probs > 0.5).float()
@@ -131,8 +142,16 @@ def evaluate(model, loader, device, criterion, max_batches: Optional[int] = None
             target_path_xz = batch["target_path_xz"].to(device)
             pad_mask = batch["pad_mask"].to(device)
             label = batch["label"].to(device)
+            scene_sdf = batch.get("scene_sdf")
+            if scene_sdf is not None:
+                scene_sdf = scene_sdf.to(device)
 
-            frame_feat = build_root_classifier_features(root_5d, target_path_xz)
+            frame_feat = build_root_classifier_features(
+                root_5d,
+                target_path_xz,
+                scene_sdf=scene_sdf,
+                sample_sdf_fn=sample_batched_sdf_2d if scene_sdf is not None else None,
+            )
             logit = model(frame_feat, pad_mask=pad_mask).squeeze(-1)
             loss = criterion(logit, label.float())
 
@@ -218,6 +237,8 @@ def train(args):
         positive_ratio=args.positive_ratio,
         max_frames=args.max_frames,
         negative_modes=args.negative_modes,
+        use_scene_sdf=args.use_scene_sdf,
+        scene_dir=args.scene_dir,
     )
     val_ds = RootClassifierDataset(
         cache_dir=args.cache_dir,
@@ -226,6 +247,8 @@ def train(args):
         positive_ratio=args.positive_ratio,
         max_frames=args.max_frames,
         negative_modes=args.negative_modes,
+        use_scene_sdf=args.use_scene_sdf,
+        scene_dir=args.scene_dir,
     )
     log.info(f"Train: {len(train_ds)}, Val: {len(val_ds)}")
 
@@ -275,10 +298,15 @@ def train(args):
             target_path_xz = batch["target_path_xz"].to(device)
             pad_mask = batch["pad_mask"].to(device)
             label = batch["label"].float().to(device)
+            scene_sdf = batch.get("scene_sdf")
+            if scene_sdf is not None:
+                scene_sdf = scene_sdf.to(device)
 
             frame_feat = build_root_classifier_features(
                 root_5d=root_5d,
                 target_path_xz=target_path_xz,
+                scene_sdf=scene_sdf,
+                sample_sdf_fn=sample_batched_sdf_2d if scene_sdf is not None else None,
             )
 
             logit = model(frame_feat, pad_mask=pad_mask).squeeze(-1)
@@ -413,6 +441,8 @@ def main():
     parser.add_argument("--gpu", type=int, default=0)
     parser.add_argument("--max_frames", type=int, default=196)
     parser.add_argument("--positive_ratio", type=float, default=0.5)
+    parser.add_argument("--use_scene_sdf", action="store_true", default=False)
+    parser.add_argument("--scene_dir", type=str, default="LINGO/dataset/dataset/Scene")
     parser.add_argument("--max_train_batches", type=int, default=None)
     parser.add_argument("--max_val_batches", type=int, default=None)
     parser.add_argument(
@@ -420,7 +450,7 @@ def main():
         nargs="+",
         default=["shift", "wrong_goal", "jitter", "wrong_heading", "reverse_heading", "path_shuffle"],
     )
-    parser.add_argument("--input_dim", type=int, default=20)
+    parser.add_argument("--input_dim", type=int, default=19)
     parser.add_argument("--hidden_dim", type=int, default=256)
     parser.add_argument("--num_layers", type=int, default=4)
     parser.add_argument("--num_heads", type=int, default=4)
@@ -442,6 +472,10 @@ def main():
                 args.cache_dir = d["cache_dir"]
             if "max_frames" in d and "max_frames" not in cli_flags:
                 args.max_frames = d["max_frames"]
+            if "use_scene_sdf" in d and "use_scene_sdf" not in cli_flags:
+                args.use_scene_sdf = bool(d["use_scene_sdf"])
+            if "scene_dir" in d and "scene_dir" not in cli_flags:
+                args.scene_dir = d["scene_dir"]
         if "negative_sampling" in cfg:
             n = cfg["negative_sampling"]
             if "positive_ratio" in n and "positive_ratio" not in cli_flags:

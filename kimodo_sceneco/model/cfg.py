@@ -50,6 +50,17 @@ def _cat_external_root(external_root, copies):
     return torch.concatenate([external_root] * copies, dim=0)
 
 
+def _cat_traj_condition(traj_feats, traj_mask, copies):
+    if traj_feats is None:
+        return None, None
+    traj_feats_cfg = torch.concatenate([traj_feats] * copies, dim=0)
+    traj_mask_cfg = (
+        torch.concatenate([traj_mask] * copies, dim=0)
+        if traj_mask is not None else None
+    )
+    return traj_feats_cfg, traj_mask_cfg
+
+
 class ClassifierFreeGuidedModel(nn.Module):
     """Wrapper around denoiser to use classifier-free guidance at sampling time.
 
@@ -128,6 +139,7 @@ class ClassifierFreeGuidedModel(nn.Module):
             cc_root = _cat_cakey_kwargs(cakey_kwargs_root, 2)
             cc_body = _cat_cakey_kwargs(cakey_kwargs_body, 2)
             er_cfg = _cat_external_root(external_root, 2)
+            traj_feats_cfg, traj_mask_cfg = _cat_traj_condition(traj_feats, traj_mask, 2)
 
             out_cond_uncond = self.model(
                 torch.concatenate([x, x], dim=0),
@@ -140,7 +152,7 @@ class ClassifierFreeGuidedModel(nn.Module):
                 observed_motion=observed_motion_cfg,
                 scene_feat_root=cf_root, scene_mask_root=cm_root,
                 scene_feat_body=cf_body, scene_mask_body=cm_body,
-                traj_feats=traj_feats, traj_mask=traj_mask,
+                traj_feats=traj_feats_cfg, traj_mask=traj_mask_cfg,
                 cakey_kwargs_root=cc_root,
                 cakey_kwargs_body=cc_body,
                 external_root=er_cfg,
@@ -163,6 +175,7 @@ class ClassifierFreeGuidedModel(nn.Module):
             cc_root = _cat_cakey_kwargs(cakey_kwargs_root, 3)
             cc_body = _cat_cakey_kwargs(cakey_kwargs_body, 3)
             er_cfg = _cat_external_root(external_root, 3)
+            traj_feats_cfg, traj_mask_cfg = _cat_traj_condition(traj_feats, traj_mask, 3)
 
             out_cond_uncond = self.model(
                 torch.concatenate([x, x, x], dim=0),
@@ -177,7 +190,7 @@ class ClassifierFreeGuidedModel(nn.Module):
                 observed_motion=observed_motion_cfg,
                 scene_feat_root=cf_root, scene_mask_root=cm_root,
                 scene_feat_body=cf_body, scene_mask_body=cm_body,
-                traj_feats=traj_feats, traj_mask=traj_mask,
+                traj_feats=traj_feats_cfg, traj_mask=traj_mask_cfg,
                 cakey_kwargs_root=cc_root,
                 cakey_kwargs_body=cc_body,
                 external_root=er_cfg,
@@ -216,6 +229,7 @@ class ClassifierFreeGuidedModel(nn.Module):
             cc_root = _cat_cakey_kwargs(cakey_kwargs_root, 4)
             cc_body = _cat_cakey_kwargs(cakey_kwargs_body, 4)
             er_cfg = _cat_external_root(external_root, 4)
+            traj_feats_cfg, traj_mask_cfg = _cat_traj_condition(traj_feats, traj_mask, 4)
 
             out_all = self.model(
                 torch.concatenate([x, x, x, x], dim=0),
@@ -230,7 +244,7 @@ class ClassifierFreeGuidedModel(nn.Module):
                 observed_motion=observed_motion_cfg,
                 scene_feat_root=cf_root, scene_mask_root=cm_root,
                 scene_feat_body=cf_body, scene_mask_body=cm_body,
-                traj_feats=traj_feats, traj_mask=traj_mask,
+                traj_feats=traj_feats_cfg, traj_mask=traj_mask_cfg,
                 cakey_kwargs_root=cc_root,
                 cakey_kwargs_body=cc_body,
                 external_root=er_cfg,
