@@ -38,3 +38,6 @@ build/
 *.swp
 *.swo
 *~
+
+# HuggingFace cache
+.hf_cache/

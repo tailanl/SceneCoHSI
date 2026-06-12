@@ -89,6 +89,7 @@ class LINGOSceneMotionDataset(Dataset):
             log.info("Loading LINGO dataset (SOMA-converted)...")
             self._load_metadata()
             self._build_segment_index()
+            self._fix_mirrored_scene_names()
             self._split_data(train_ratio, seed)
             self._preload_scenes()
 
@@ -112,7 +113,17 @@ class LINGOSceneMotionDataset(Dataset):
                 "cache_path": str(f),
                 "length": length,
                 "scene_name": scene_name,
+                "_orig_scene_name": scene_name,
             })
+
+        # Fix mirrored scene names: LINGO dataset assigns all mirrored
+        # segments to "005_mirror", but the correct scene is the mirrored
+        # version of the corresponding non-mirrored segment's scene.
+        self._fix_mirrored_scene_names()
+
+        # Preload corrected scene voxels for mirrored segments whose cached
+        # voxel_grid corresponds to 005_mirror instead of the correct scene.
+        self._preload_corrected_scenes()
 
         rng = random.Random(42)
         indices = list(range(len(self.segments)))
@@ -124,6 +135,60 @@ class LINGOSceneMotionDataset(Dataset):
         else:
             selected = indices[n_train:]
         self.segments = [self.segments[i] for i in selected]
+
+    def _fix_mirrored_scene_names(self):
+        """Correct mirrored segment scene names by pairing with non-mirrored counterparts.
+
+        The LINGO dataset assigns ALL mirrored segments to "005_mirror" regardless
+        of the original scene. This pairs each mirrored segment with its
+        corresponding non-mirrored segment (same position in the ordered list)
+        and assigns the correct mirrored scene name.
+        """
+        non_mirror = [s for s in self.segments if "_mirror" not in s["scene_name"]]
+        mirror = [s for s in self.segments if "_mirror" in s["scene_name"]]
+        n_fixed = 0
+        for i in range(min(len(non_mirror), len(mirror))):
+            orig_scene = non_mirror[i]["scene_name"]
+            corrected = f"{orig_scene}_mirror"
+            if mirror[i]["scene_name"] != corrected:
+                mirror[i]["scene_name"] = corrected
+                n_fixed += 1
+        if n_fixed > 0:
+            log.info(f"Corrected scene names for {n_fixed} mirrored segments (non-mirror: {len(non_mirror)}, mirror: {len(mirror)})")
+
+    def _preload_corrected_scenes(self):
+        """Preload scene voxel grids from Scene/ directory for corrected scene names.
+
+        When a mirrored segment's scene name was corrected from 005_mirror to
+        e.g. 037_mirror, the cached voxel_grid is still from 005_mirror.
+        This preloads the correct voxel grids so they can be used at getitem time.
+        """
+        self._corrected_scene_voxels = {}
+        scene_dir = self.dataset_dir / "Scene"
+        if not scene_dir.exists():
+            return
+
+        corrected_scenes = set(
+            s["scene_name"] for s in self.segments
+            if s.get("_orig_scene_name") and s["_orig_scene_name"] != s["scene_name"]
+        )
+        if not corrected_scenes:
+            return
+
+        for scene_name in corrected_scenes:
+            base_name = scene_name.split("-")[0]
+            voxel = None
+            for suffix in [scene_name, base_name]:
+                path = scene_dir / f"{suffix}.npy"
+                if path.exists():
+                    voxel = np.load(str(path)).astype(np.float32)
+                    voxel = self._downsample_voxel(voxel)
+                    break
+            if voxel is not None:
+                self._corrected_scene_voxels[scene_name] = voxel
+
+        if self._corrected_scene_voxels:
+            log.info(f"Preloaded {len(self._corrected_scene_voxels)} corrected scene voxels")
 
     def _get_soma_converter(self):
         if self._soma_converter is not None:
@@ -210,7 +275,7 @@ class LINGOSceneMotionDataset(Dataset):
             if length < self.min_frames or length > self.max_frames:
                 continue
 
-            if i >= len(self.scene_names):
+            if s >= len(self.scene_names):
                 break
             scene_name = self.scene_names[s]
 
@@ -229,6 +294,7 @@ class LINGOSceneMotionDataset(Dataset):
                     "end": e,
                     "length": length,
                     "scene_name": scene_name,
+                    "_orig_scene_name": scene_name,
                     "texts": texts,
                     "soma_key": seg_key,
                     "has_soma": has_soma,
@@ -493,9 +559,18 @@ class LINGOSceneMotionDataset(Dataset):
                 f"Set root_trajectory_data=True if using root trajectory dataset."
             )
 
-        voxel = data["voxel_grid"].copy()
         length = int(data["length"])
-        scene_name = str(data["scene_name"])
+        scene_name = seg["scene_name"]
+
+        # Use corrected voxel if the scene was fixed (mirrored segments)
+        if seg.get("_orig_scene_name") and seg["_orig_scene_name"] != scene_name:
+            corrected_voxels = getattr(self, "_corrected_scene_voxels", {})
+            if scene_name in corrected_voxels:
+                voxel = corrected_voxels[scene_name].copy()
+            else:
+                voxel = data["voxel_grid"].copy()
+        else:
+            voxel = data["voxel_grid"].copy()
 
         if self.scene_dropout > 0 and self.split == "train" and random.random() < self.scene_dropout:
             voxel = np.zeros_like(voxel)

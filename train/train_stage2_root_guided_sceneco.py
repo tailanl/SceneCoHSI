@@ -433,6 +433,7 @@ def main():
     parser.add_argument("--prior_weight", type=float, default=None)
     parser.add_argument("--scene_dropout", type=float, default=None)
     parser.add_argument("--num_workers", type=int, default=None)
+    parser.add_argument("--save_every_epochs", type=int, default=50)
 
     args = parser.parse_args()
 
@@ -653,7 +654,7 @@ def main():
         log.info(f"Epoch {epoch}/{num_epochs}: loss={avg_loss:.4f} body_mse={avg_body:.4f} "
                  f"root_mse={avg_root:.4f} best_val={best_val:.4f}")
 
-        if epoch % 20 == 0:
+        if args.save_every_epochs > 0 and epoch % args.save_every_epochs == 0:
             torch.save({
                 "epoch": epoch, "step": step,
                 "model_state_dict": model.state_dict(),

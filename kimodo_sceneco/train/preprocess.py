@@ -374,6 +374,24 @@ def main():
     failed = 0
     first_errors = []
 
+    # Pre-scan: collect scene_name for each non-mirrored segment index.
+    # Mirrored segments in the LINGO dataset are ALL labeled "005_mirror"
+    # regardless of their actual scene. We fix this by pairing each mirrored
+    # segment with its non-mirrored counterpart (seg_idx - N/2) and using
+    # the mirrored version of that scene instead.
+    non_mirror_scene_by_idx = {}
+    for seg_path in tqdm(seg_files, desc="Pre-scanning scenes"):
+        seg_idx = int(seg_path.stem.replace("seg_", ""))
+        data = np.load(str(seg_path), allow_pickle=True)
+        scene_name = str(data.get("scene_name", ""))
+        if "_mirror" not in scene_name:
+            non_mirror_scene_by_idx[seg_idx] = scene_name
+    log.info(f"Pre-scanned {len(non_mirror_scene_by_idx)} non-mirrored scene mappings")
+
+    if non_mirror_scene_by_idx:
+        half_offset = max(non_mirror_scene_by_idx.keys()) + 1
+        log.info(f"Mirror offset (half dataset size): {half_offset}")
+
     for seg_path in tqdm(seg_files, desc="Preprocessing"):
         try:
             data = np.load(str(seg_path), allow_pickle=True)
@@ -398,6 +416,16 @@ def main():
                 continue
 
             scene_name = str(data["scene_name"])
+
+            # Fix mirrored scene names: use the mirrored version of the
+            # partner segment's scene instead of the generic "005_mirror".
+            if "_mirror" in scene_name:
+                partner_idx = seg_idx - half_offset
+                if partner_idx in non_mirror_scene_by_idx:
+                    partner_scene = non_mirror_scene_by_idx[partner_idx]
+                    corrected_scene = f"{partner_scene}_mirror"
+                    if corrected_scene != scene_name:
+                        scene_name = corrected_scene
 
             if scene_name not in scene_cache:
                 base_name = scene_name.split("-")[0]

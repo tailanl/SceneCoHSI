@@ -132,6 +132,8 @@ def main():
     parser.add_argument("--trajco_body", action="store_true")
     parser.add_argument("--trajco_type", type=str, default="cross_attn")
     parser.add_argument("--trajco_dropout", type=float, default=0.1)
+    parser.add_argument("--max_samples", type=int, default=None)
+    parser.add_argument("--skip_existing", action="store_true")
     parser.add_argument("--gpu", type=int, default=0)
     args = parser.parse_args()
 
@@ -168,11 +170,17 @@ def main():
     if not npz_files:
         # Try flat directory
         npz_files = sorted(root_dir.glob("*.npz"))
+    if args.max_samples is not None and args.max_samples > 0:
+        npz_files = npz_files[: args.max_samples]
     log.info(f"Found {len(npz_files)} root files in {root_dir}")
 
     root_fix_errors = []
 
     for npz_file in tqdm(npz_files, desc="Generating body"):
+        out_file = output_dir / npz_file.name
+        if args.skip_existing and out_file.exists():
+            log.info(f"Skipping existing {out_file}")
+            continue
         data = np.load(str(npz_file), allow_pickle=True)
         text = str(data.get("text", "walk"))
         scene_name = str(data.get("scene_name", ""))
@@ -272,7 +280,7 @@ def main():
         if gt_root_xz_out is None:
             gt_root_xz_out = data.get("target_path_xz", None)
         np.savez(
-            str(output_dir / npz_file.name),
+            str(out_file),
             gen_root=gen_root_out,
             gen_joints=gen_joints,
             gt_joints=data.get("gt_joints", None),
@@ -281,11 +289,14 @@ def main():
             scene_name=str(data.get("scene_name", "")),
         )
 
-    log.info(
-        f"Root fix max_error: {max(root_fix_errors):.2e} | "
-        f"mean: {np.mean(root_fix_errors):.2e} | "
-        f"all_passed: {all(e < 1e-5 for e in root_fix_errors)}"
-    )
+    if root_fix_errors:
+        log.info(
+            f"Root fix max_error: {max(root_fix_errors):.2e} | "
+            f"mean: {np.mean(root_fix_errors):.2e} | "
+            f"all_passed: {all(e < 1e-5 for e in root_fix_errors)}"
+        )
+    else:
+        log.info("No new body files generated.")
     log.info(f"Done! Body results saved to {output_dir}")
 
 

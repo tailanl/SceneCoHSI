@@ -1,0 +1,14 @@
+# CURRENT_EXPERIMENT_STATUS
+
+Re-audit timestamp: 2026-06-10 16:50 Asia/Shanghai. No blocker was cleared by the latest check.
+
+| Experiment                             | Process Running | Root Generated | Body Generated | Classifier Active | Stage2 external_root Active | Root Fix Verified | Metrics Exists | Status | Blocker |
+| -------------------------------------- | --------------: | -------------: | -------------: | ----------------: | --------------------------: | ----------------: | -------------: | ------ | ------- |
+| E0 NoGuidance + Original Body          |              NO |             NO |             NO |               N/A |                         N/A |               N/A |             NO | NOT_STARTED | No E0/no-guidance artifacts found; only empty `outputs/baseline_kimoto` directory found. |
+| E1 EnergyGuidance + Original Body      |              NO |            YES |            YES |               N/A |                         N/A |               YES |            YES | INCOMPLETE | Root NPZ format is old and missing `guided_root_5d_norm`, `guided_root_5d_meter`, `target_path_xz`, and `source_file`. |
+| E2 ClassifierGuidance + Original Body  |              NO |            YES |            YES |               YES |                         N/A |                NO |            YES | INCOMPLETE | Body output exists, but no root-fix max error log was found. |
+| E3 HybridGuidance + Original Body      |              NO |            YES |            YES |               YES |                         N/A |                NO |            YES | INCOMPLETE | Body output exists, but no root-fix max error log was found. |
+| E4 EnergyGuidance + Stage2 SceneCo     |             YES |            YES |             NO |               N/A |                     PARTIAL |                NO |             NO | INVALID | Stage2 is running, but E4 fast150 logs show `path_root_missing_gt_fallback`; E4 root NPZs also miss required fields. |
+| E5 ClassifierGuidance + Stage2 SceneCo |             YES |            YES |             NO |               YES |                         YES |                NO |             NO | VALID_RUNNING | Stage2 is verified running with external roots; body generation and metrics are pending. |
+| E6 HybridGuidance + Stage2 SceneCo     |             YES |            YES |             NO |               YES |                         YES |                NO |             NO | VALID_RUNNING | Stage2 is verified running with external roots; body generation and metrics are pending. |
+| E7 GTRoot + Stage2 SceneCo             |              NO |            YES |            YES |               N/A |                          NO |               YES |            YES | INVALID | Stage2 log shows all first external-root sources as `path_root_missing_gt_fallback`; GT root NPZs miss `guided_root_5d_meter`. |

@@ -419,6 +419,11 @@ def main():
     parser.add_argument("--resume", type=str, default=None,
                         help="Path to Stage2 checkpoint to resume from")
     parser.add_argument("--gpu", type=int, default=0)
+    parser.add_argument("--output_dir", type=str, default=None)
+    parser.add_argument("--num_epochs", type=int, default=None)
+    parser.add_argument("--batch_size", type=int, default=None)
+    parser.add_argument("--num_workers", type=int, default=None)
+    parser.add_argument("--save_every_epochs", type=int, default=None)
     args = parser.parse_args()
 
     import yaml
@@ -429,12 +434,12 @@ def main():
     train_cfg = cfg.get("training", {})
     trajco_cfg = cfg.get("trajco", {})
 
-    output_dir = Path(cfg["output_dir"])
-    batch_size = train_cfg.get("batch_size", 4)
-    num_epochs = train_cfg.get("num_epochs", 40)
+    output_dir = Path(args.output_dir or cfg["output_dir"])
+    batch_size = args.batch_size or train_cfg.get("batch_size", 4)
+    num_epochs = args.num_epochs or train_cfg.get("num_epochs", 40)
     lr = float(train_cfg.get("lr", 1e-4))
     seed = train_cfg.get("seed", 42)
-    num_workers = train_cfg.get("num_workers", 4)
+    num_workers = args.num_workers if args.num_workers is not None else train_cfg.get("num_workers", 4)
     max_frames = data_cfg.get("max_frames", 196)
     min_frames = data_cfg.get("min_frames", 40)
     fps = data_cfg.get("fps", 30)
@@ -446,6 +451,11 @@ def main():
     val_interval = train_cfg.get("val_interval", 500)
     val_max_batches = train_cfg.get("val_max_batches", 10)
     num_base_steps = train_cfg.get("num_base_steps", 1000)
+    save_every_epochs = (
+        args.save_every_epochs
+        if args.save_every_epochs is not None
+        else train_cfg.get("save_every_epochs", 50)
+    )
 
     # Stage1 checkpoint path
     stage1_ckpt = args.stage1_ckpt or cfg.get("stage1_checkpoint", None)
@@ -529,6 +539,7 @@ def main():
     last_grad_norm = 0.0
 
     log.info(f"Batch size: {batch_size}, Epochs: {num_epochs}, LR: {lr}")
+    log.info(f"Saving epoch checkpoints every {save_every_epochs} epochs")
     log.info(f"SceneCo: root_model={cfg.get('sceneco',{}).get('use_in_root_model',False)}, body_model={cfg.get('sceneco',{}).get('use_in_body_model',True)}")
     log.info(f"TrajCo: root={trajco_cfg.get('use_trajco_root',True)}, body={trajco_cfg.get('use_trajco_body',False)}")
 
@@ -620,7 +631,7 @@ def main():
         avg_root = epoch_root_mse / max(n_batches, 1)
         log.info(f"Epoch {epoch}/{num_epochs}: loss={avg_loss:.4f} body_mse={avg_body:.4f} root_mse={avg_root:.4f} best_val={best_val:.4f}")
 
-        if epoch % 5 == 0:
+        if save_every_epochs > 0 and epoch % save_every_epochs == 0:
             torch.save({
                 "epoch": epoch, "step": step,
                 "model_state_dict": model.state_dict(),
